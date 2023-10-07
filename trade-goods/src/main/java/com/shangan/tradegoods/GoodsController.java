@@ -11,6 +11,6 @@ public class GoodsController {
     @RequestMapping("/goods/test")
     @ResponseBody
     public String test() {
-        return "hello world java!";
+        return "Hi Yuxuan! You are the best!";
     }
 }
