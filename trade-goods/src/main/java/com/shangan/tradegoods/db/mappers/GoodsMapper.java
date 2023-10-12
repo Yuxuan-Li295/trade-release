@@ -1,6 +1,8 @@
 package com.shangan.tradegoods.db.mappers;
 
-import com.shangan.tradegoods.model.Goods;
+import com.shangan.tradegoods.db.model.Goods;
+import org.springframework.stereotype.Service;
+
 
 public interface GoodsMapper {
     int deleteByPrimaryKey(Long id);
@@ -14,4 +16,10 @@ public interface GoodsMapper {
     int updateByPrimaryKeySelective(Goods record);
 
     int updateByPrimaryKey(Goods record);
+
+    int lockStock(Long id);
+
+    int deductStock(Long id);
+
+    int revertStock(Long id);
 }

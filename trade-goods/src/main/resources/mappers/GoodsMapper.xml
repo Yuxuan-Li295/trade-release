@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.shangan.trade.goods.db.mappers.GoodsMapper">
-    <resultMap id="BaseResultMap" type="com.shangan.trade.goods.db.model.Goods">
+<mapper namespace="com.shangan.tradegoods.db.mappers.GoodsMapper">
+    <resultMap id="BaseResultMap" type="com.shangan.tradegoods.db.model.Goods">
         <id column="id" jdbcType="BIGINT" property="id" />
         <result column="title" jdbcType="VARCHAR" property="title" />
         <result column="number" jdbcType="VARCHAR" property="number" />
@@ -31,19 +31,19 @@
         delete from goods
         where id = #{id,jdbcType=BIGINT}
     </delete>
-    <insert id="insert" parameterType="com.shangan.trade.goods.db.model.Goods">
-        insert into goods (id, title, number,
-                           brand, image, description,
-                           price, status, keywords,
-                           category, available_stock, lock_stock,
-                           sale_num, create_time)
-        values (#{id,jdbcType=BIGINT}, #{title,jdbcType=VARCHAR}, #{number,jdbcType=VARCHAR},
-                #{brand,jdbcType=VARCHAR}, #{image,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR},
-                #{price,jdbcType=INTEGER}, #{status,jdbcType=INTEGER}, #{keywords,jdbcType=VARCHAR},
-                #{category,jdbcType=VARCHAR}, #{availableStock,jdbcType=INTEGER}, #{lockStock,jdbcType=INTEGER},
-                #{saleNum,jdbcType=INTEGER}, #{createTime,jdbcType=TIMESTAMP})
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" parameterType="com.shangan.tradegoods.db.model.Goods">
+        insert into goods ( title, number,
+                            brand, image, description,
+                            price, status, keywords,
+                            category, available_stock, lock_stock,
+                            sale_num, create_time)
+        values ( #{title,jdbcType=VARCHAR}, #{number,jdbcType=VARCHAR},
+                 #{brand,jdbcType=VARCHAR}, #{image,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR},
+                 #{price,jdbcType=INTEGER}, #{status,jdbcType=INTEGER}, #{keywords,jdbcType=VARCHAR},
+                 #{category,jdbcType=VARCHAR}, #{availableStock,jdbcType=INTEGER}, #{lockStock,jdbcType=INTEGER},
+                 #{saleNum,jdbcType=INTEGER}, #{createTime,jdbcType=TIMESTAMP})
     </insert>
-    <insert id="insertSelective" parameterType="com.shangan.trade.goods.db.model.Goods">
+    <insert id="insertSelective" parameterType="com.shangan.tradegoods.db.model.Goods">
         insert into goods
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="id != null">
@@ -134,7 +134,7 @@
             </if>
         </trim>
     </insert>
-    <update id="updateByPrimaryKeySelective" parameterType="com.shangan.trade.goods.db.model.Goods">
+    <update id="updateByPrimaryKeySelective" parameterType="com.shangan.tradegoods.db.model.Goods">
         update goods
         <set>
             <if test="title != null">
@@ -179,7 +179,7 @@
         </set>
         where id = #{id,jdbcType=BIGINT}
     </update>
-    <update id="updateByPrimaryKey" parameterType="com.shangan.trade.goods.db.model.Goods">
+    <update id="updateByPrimaryKey" parameterType="com.shangan.tradegoods.db.model.Goods">
         update goods
         set title = #{title,jdbcType=VARCHAR},
             number = #{number,jdbcType=VARCHAR},
@@ -194,6 +194,28 @@
             lock_stock = #{lockStock,jdbcType=INTEGER},
             sale_num = #{saleNum,jdbcType=INTEGER},
             create_time = #{createTime,jdbcType=TIMESTAMP}
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+
+    <update id="lockStock" parameterType="java.lang.Long">
+        update goods
+        set available_stock = available_stock - 1,
+            lock_stock      = lock_stock + 1
+        where id = #{id,jdbcType=BIGINT}
+          and available_stock &gt; 0
+    </update>
+
+    <update id="deductStock" parameterType="java.lang.Long">
+        UPDATE goods
+        SET lock_stock = lock_stock - 1,
+            sale_num = sale_num + 1
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+
+    <update id="revertStock" parameterType="java.lang.Long">
+        update goods
+        set available_stock = available_stock + 1,
+            lock_stock      = lock_stock - 1
         where id = #{id,jdbcType=BIGINT}
     </update>
 </mapper>

@@ -1,11 +1,13 @@
-package com.shangan.tradegoods.model;
+package com.shangan.tradegoods.db.model;
 
 import java.util.Date;
 
 public class Goods {
-    private long id;
+    private Long id;
 
     private String title;
+
+    private String number;
 
     private String brand;
 
@@ -35,6 +37,22 @@ public class Goods {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title == null ? null : title.trim();
+    }
+
+    public String getNumber() {
+        return number;
+    }
+
+    public void setNumber(String number) {
+        this.number = number == null ? null : number.trim();
     }
 
     public String getBrand() {
@@ -101,7 +119,7 @@ public class Goods {
         this.availableStock = availableStock;
     }
 
-    public Integer getLockStock(Integer lockStock) {
+    public Integer getLockStock() {
         return lockStock;
     }
 
