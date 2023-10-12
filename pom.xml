@@ -25,6 +25,7 @@
     <modules>
         <module>trade-goods</module>
         <module>trade-order</module>
+        <module> trade-web-manager</module>
     </modules>
 
     <dependencies>
