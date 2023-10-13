@@ -18,5 +18,10 @@ public class GoodsServiceImpl implements GoodsService {
     public boolean insertGoods(Goods goods) {
         return goodsDao.insertGoods(goods);
     }
+
+    @Override
+    public Goods queryGoodsById(long id) {
+        return goodsDao.queryGoodsById(id);
+    }
 }
 

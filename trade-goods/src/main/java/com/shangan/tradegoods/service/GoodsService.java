@@ -14,4 +14,7 @@ public interface GoodsService {
      * @return
      */
     boolean insertGoods(Goods goods);
+
+    Goods queryGoodsById(long id);
+
 }
