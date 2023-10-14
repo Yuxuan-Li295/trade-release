@@ -48,18 +48,18 @@ public class GoodsTest {
 
     @Test
     public void queryGoodsTest() {
-        Goods goods = goodsDao.queryGoodsById(1039);
+        Goods goods = goodsDao.queryGoodsById(1);
         System.out.println(JSON.toJSONString(goods));
     }
 
     @Test
     public void updateGoods() {
-        Goods goods = goodsDao.queryGoodsById(1039);
+        Goods goods = goodsDao.queryGoodsById(1);
         if(goods != null) {
             goods.setTitle(goods.getTitle() + " update");
             goodsDao.updateGoods(goods);
         } else {
-            System.out.println("Goods with id 2 not found");
+            System.out.println("Goods with id 1 not found");
         }
     }
 

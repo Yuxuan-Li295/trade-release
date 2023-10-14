@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.ModelAndView;
 
-import java.util.Map;
 
 @Slf4j
 @Controller
@@ -22,58 +21,41 @@ public class PortalController {
     private GoodsService goodsService;
 
     @RequestMapping("/")
-    public String home() {
+    public String redirectTohome() {
         return "goods_detail";
     }
 
-
-    /**
-     * 跳转到主页面
-     *
-     * @return
-     */
     @RequestMapping("/goods_detail")
-    public String index() {
+    public String showHomePage() {
         return "goods_detail";
     }
 
-    /**
-     * 商品详情页
-     *
-     * @param goodsId
-     * @return
-     */
     @RequestMapping("/goods/{goodsId}")
-    public ModelAndView itemPage(@PathVariable long goodsId) {
-        Goods goods = goodsService.queryGoodsById(goodsId);
-        log.info("goodsId={},goods={}", goodsId, JSON.toJSON(goods));
+    public ModelAndView displayProductDetail(@PathVariable long goodsId) {
+        ModelAndView mav = new ModelAndView();
+        Goods item = goodsService.queryGoodsById(goodsId);
+        log.info("Fetching details for Product ID = {}, Details = {}", goodsId, JSON.toJSONString(item));
 
-        ModelAndView modelAndView = new ModelAndView();
-
-        if (goods != null) {
-            String showPrice = CommonUtils.changeF2Y(goods.getPrice());
-            modelAndView.addObject("goods", goods);
-            modelAndView.addObject("showPrice", showPrice);
-            modelAndView.setViewName("goods_detail");
+        if (item != null) {
+            String showPrice = CommonUtils.changeF2Y(item.getPrice());
+            mav.addObject("goods", item);
+            mav.addObject("showPrice", showPrice);
+            mav.setViewName("goods_detail");
         } else {
-            modelAndView.setViewName("error");
-            modelAndView.addObject("errorMessage", "Goods not found for ID: " + goodsId);
+            mav.setViewName("error");
+            mav.addObject("errorMessage", "Unable to locate product with ID: " + goodsId);
         }
 
-        return modelAndView;
+        return mav;
     }
 
 
-    /**
-     * 购买请求处理
-     * @param userId
-     * @param goodsId
-     * @return
-     */
+
     @RequestMapping("/buy/{userId}/{goodsId}")
-    public ModelAndView buy(@PathVariable long userId, @PathVariable long goodsId) {
+    public ModelAndView handlePurchasRequest(@PathVariable long userId, @PathVariable long goodsId) {
 
         log.info("buy userId={}, goodsId={}", userId, goodsId);
+        //Logic for handling purchase can be added here
         return null;
     }
 }
