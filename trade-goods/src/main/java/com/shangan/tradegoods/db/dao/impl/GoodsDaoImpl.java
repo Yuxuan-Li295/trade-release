@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * 商品数据库操作
+ * Goods Database operation
  */
 @Slf4j
 @Service
@@ -19,60 +19,28 @@ public class GoodsDaoImpl implements GoodsDao {
 
     @Override
     public boolean insertGoods(Goods goods) {
-        int result = goodsMapper.insert(goods);
-        //大于0 表示插入成功
-        if (result > 0) {
-            return true;
-        }
-        return false;
+        int rowsAffectd = goodsMapper.insert(goods);
+        log.info("Inserted {} product(s).", rowsAffectd);
+        return rowsAffectd > 0;
     }
 
     @Override
     public boolean deleteGoods(long id) {
-        int result = goodsMapper.deleteByPrimaryKey(id);
-        return result > 0;
+        int rowsAffected = goodsMapper.deleteByPrimaryKey(id);
+        log.info("Deleted{} product(s) with ID: {}.", rowsAffected, id);
+        return rowsAffected > 0;
     }
 
     @Override
     public Goods queryGoodsById(long id) {
-        Goods goods = goodsMapper.selectByPrimaryKey(id);
-        return goods;
+        log.info("Fetching product with ID: {}.", id);
+        return goodsMapper.selectByPrimaryKey(id);
     }
 
     @Override
     public boolean updateGoods(Goods goods) {
-        int result = goodsMapper.updateByPrimaryKey(goods);
-        return result > 0;
-    }
-
-    @Override
-    public boolean lockStock(long id) {
-        int result = goodsMapper.lockStock(id);
-        //大于0 表示插入成功
-        if (result < 0) {
-            log.error("锁定库存失败");
-            return false;
-        }
-        return true;
-    }
-
-    @Override
-    public boolean deductStock(long id) {
-        int result = goodsMapper.deductStock(id);
-        if (result < 1) {
-            log.error("扣减库存失败");
-            return false;
-        }
-        return true;
-    }
-
-    @Override
-    public boolean revertStock(long id) {
-        int result = goodsMapper.revertStock(id);
-        if (result < 1) {
-            log.error("库存回补失败");
-            return false;
-        }
-        return true;
+        int rowsAffected = goodsMapper.updateByPrimaryKey(goods);
+        log.info("Updated {} product(s) with ID: {}.", rowsAffected, goods.getId());
+        return rowsAffected > 0;
     }
 }

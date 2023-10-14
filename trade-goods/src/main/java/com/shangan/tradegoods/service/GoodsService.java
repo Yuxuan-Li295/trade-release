@@ -4,17 +4,16 @@ package com.shangan.tradegoods.service;
 import com.shangan.tradegoods.db.model.Goods;
 
 /**
- * 商品相关服务接口
+ * Service interface for product-related operations
  */
 public interface GoodsService {
     /**
-     * 插入一个商品
-     *
-     * @param goods
-     * @return
+     * Add a new product into database
      */
     boolean insertGoods(Goods goods);
 
+    /**
+     * Retrieves product details using its ID
+     */
     Goods queryGoodsById(long id);
-
 }

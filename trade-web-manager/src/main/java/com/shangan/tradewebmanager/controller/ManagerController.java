@@ -18,19 +18,13 @@ public class ManagerController {
     @Autowired
     private GoodsService goodsService;
 
-    /**
-     * 跳转到主页面
-     * @return
-     */
     @RequestMapping("/index")
     public String index() {
         return "index";
     }
 
-
     /**
-     * 跳转商品添加页面
-     * @return
+     * Handles the addition of a new goods
      */
     @RequestMapping("/add_goods")
     public String addGoods() {
@@ -38,7 +32,7 @@ public class ManagerController {
     }
 
     /**
-     * 处理商品添加
+     * Handles the addition of a new good
      * @param title
      * @param number
      * @param brand
@@ -71,13 +65,11 @@ public class ManagerController {
         goods.setKeywords(keywords);
         goods.setCategory(category);
         goods.setAvailableStock(stock);
-        //初始为上架状态
-        goods.setStatus(1);
-        //初始的销售数量为0
+        goods.setStatus(1); //Initially set as available
         goods.setSaleNum(0);
         goods.setCreateTime(new Date());
-        boolean result = goodsService.insertGoods(goods);
-        log.info("add goods result={}", result);
+        boolean isAdded = goodsService.insertGoods(goods);
+        log.info("add goods result={}", isAdded);
         resultMap.put("goodsInfo", goods);
         return "add_goods";
     }
