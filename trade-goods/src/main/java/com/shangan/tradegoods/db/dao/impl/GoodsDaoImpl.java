@@ -7,9 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-/**
- * Goods Database operation
- */
+
 @Slf4j
 @Service
 public class GoodsDaoImpl implements GoodsDao {
@@ -19,28 +17,29 @@ public class GoodsDaoImpl implements GoodsDao {
 
     @Override
     public boolean insertGoods(Goods goods) {
-        int rowsAffectd = goodsMapper.insert(goods);
-        log.info("Inserted {} product(s).", rowsAffectd);
-        return rowsAffectd > 0;
+        int result = goodsMapper.insert(goods);
+        //大于0 表示插入成功
+        if (result > 0) {
+            return true;
+        }
+        return false;
     }
 
     @Override
     public boolean deleteGoods(long id) {
-        int rowsAffected = goodsMapper.deleteByPrimaryKey(id);
-        log.info("Deleted{} product(s) with ID: {}.", rowsAffected, id);
-        return rowsAffected > 0;
+        int result = goodsMapper.deleteByPrimaryKey(id);
+        return result > 0;
     }
 
     @Override
     public Goods queryGoodsById(long id) {
-        log.info("Fetching product with ID: {}.", id);
-        return goodsMapper.selectByPrimaryKey(id);
+        Goods goods = goodsMapper.selectByPrimaryKey(id);
+        return goods;
     }
 
     @Override
     public boolean updateGoods(Goods goods) {
-        int rowsAffected = goodsMapper.updateByPrimaryKey(goods);
-        log.info("Updated {} product(s) with ID: {}.", rowsAffected, goods.getId());
-        return rowsAffected > 0;
+        int result = goodsMapper.updateByPrimaryKey(goods);
+        return result > 0;
     }
 }

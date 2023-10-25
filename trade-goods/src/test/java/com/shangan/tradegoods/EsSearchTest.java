@@ -1,35 +1,36 @@
 package com.shangan.tradegoods;
 
 import com.alibaba.fastjson.JSON;
-import com.shangan.tradegoods.model.Goods;
+import com.shangan.tradegoods.db.model.Goods;
+import com.shangan.tradegoods.model.Cargo;
+import com.shangan.tradegoods.service.SearchService;
 import org.apache.http.HttpHost;
-import org.apache.lucene.queryparser.xml.builders.BooleanQueryBuilder;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
-import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.test.context.junit4.SpringRunner;
 
-import javax.management.Query;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.junit.Assert.*;
 
 /**
  * 我的步骤：
@@ -46,7 +47,11 @@ import java.util.stream.Stream;
  * 从中读取配置以创建应用程序上下文。
  */
 @SpringBootTest
+@RunWith(SpringRunner.class)
 public class EsSearchTest {
+
+    @Autowired
+    private SearchService searchService;
 
 
     @Test
@@ -66,7 +71,7 @@ public class EsSearchTest {
 
     @Test
     public void addGoodsDoc() throws Exception {
-        Goods goods = new Goods();
+        Cargo goods = new Cargo();
         goods.setProductId("G12349");
         goods.setProductName("Ice Cream");
         goods.setCategory("Foods");
@@ -184,10 +189,10 @@ public class EsSearchTest {
         //Display total records and results
         SearchHits searchHits = searchResponse.getHits();
         System.out.println("总记录数" + searchHits.getTotalHits().value);
-        List<Goods> goodsList = new ArrayList<>();
+        List<Cargo> goodsList = new ArrayList<>();
         searchHits.forEach(hit -> {
             String json = hit.getSourceAsString();
-            Goods goodsItem = JSON.parseObject(json, Goods.class);
+            Cargo goodsItem = JSON.parseObject(json, Cargo.class);
             goodsList.add(goodsItem);
         });
         //Print the names of the match items
@@ -215,9 +220,9 @@ public class EsSearchTest {
         SearchHits searchHits = searchResponse.getHits();
         //Processing the result
         System.out.println("Total number of records: " + searchHits.getTotalHits().value);
-        List<Goods> goodsList = new ArrayList<>();
+        List<Cargo> goodsList = new ArrayList<>();
         searchHits.forEach(hit -> {
-            Goods goodsItem = JSON.parseObject(hit.getSourceAsString(), Goods.class);
+            Cargo goodsItem = JSON.parseObject(hit.getSourceAsString(), Cargo.class);
             goodsList.add(goodsItem);
         });
         //Print results
@@ -290,4 +295,41 @@ public class EsSearchTest {
         QueryBuilder query = QueryBuilders.multiMatchQuery("wireless iPhone","description", "productName");
         executeSearchAndPrintResults(request, query);
     }
+
+    @Test
+    public void addGoodsToES() {
+        Goods goods = new Goods();
+        goods.setTitle("Yuxuan's Ice Cream");
+        goods.setBrand("Yuxuan");
+        goods.setCategory("Food");
+        goods.setNumber("NO6");
+        goods.setId(Long.valueOf("1043"));
+        goods.setImage("test");
+        goods.setDescription("Ice Cream, Summer Mate, Delicious");
+        goods.setKeywords("Best Ice Cream");
+        goods.setSaleNum(78);
+        goods.setAvailableStock(10000);
+        goods.setPrice(899999);
+        goods.setStatus(1);
+        searchService.addGoodsToES(goods);
+    }
+
+    @Test
+    public void goodSearchTest() {
+        //Execute the function
+        List<Goods> goodsList = searchService.searchGoodsList("Samsung",0,10);
+        //Assert the results
+        assertNotNull(goodsList);
+        assertFalse(goodsList.isEmpty());
+        //Validate the retrieved goods have the expected properties
+        for (Goods goods: goodsList) {
+            assertTrue(goods.getTitle().contains("三星"));
+        }
+
+    }
+
+
+
 }
+
+

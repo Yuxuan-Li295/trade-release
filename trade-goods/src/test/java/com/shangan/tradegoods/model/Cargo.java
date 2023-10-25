@@ -1,6 +1,6 @@
 package com.shangan.tradegoods.model;
 
-public class Goods {
+public class Cargo {
     private String productId;
     private String productName;
     private String category;
