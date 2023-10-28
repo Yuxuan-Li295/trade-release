@@ -1,11 +1,14 @@
 package com.shangan.tradewebportal.controller;
 
 import com.alibaba.fastjson.JSON;
+import com.shangan.tradegoods.db.dao.GoodsDao;
 import com.shangan.tradegoods.db.model.Goods;
 import com.shangan.tradegoods.service.GoodsService;
 import com.shangan.tradegoods.service.SearchService;
 import com.shangan.tradewebportal.util.CommonUtils;
+import com.shangan.tradeorder.service.OrderService;
 import lombok.extern.slf4j.Slf4j;
+import com.shangan.tradeorder.db.model.Order;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,12 +24,18 @@ import java.util.Map;
 @Controller
 public class PortalController {
 
+    @Autowired
+    private GoodsDao goodsDao;
 
     @Autowired
     private GoodsService goodsService;
 
     @Autowired
     private SearchService searchService;
+
+    @Autowired
+    private OrderService orderService;
+
 
     @RequestMapping("/")
     public String redirectTohome() {
@@ -61,11 +70,29 @@ public class PortalController {
 
 
     @RequestMapping("/buy/{userId}/{goodsId}")
-    public ModelAndView handlePurchasRequest(@PathVariable long userId, @PathVariable long goodsId) {
-
+    public String handlePurchasRequest(Map<String, Object> resultMap, @PathVariable long userId, @PathVariable long goodsId) {
         log.info("buy userId={}, goodsId={}", userId, goodsId);
-        //Logic for handling purchase can be added here
-        return null;
+        try {
+            //Fetch the goods from the database.
+            Goods goods = goodsDao.queryGoodsById(goodsId);
+            if (goods == null) {
+                resultMap.put("errorInfo", "下单失败");
+                return "error";
+            }
+
+            Order order = orderService.createOrder(userId,goodsId);
+            //Create a new order using OrderService
+            if (order != null) {
+                resultMap.put("order",order);
+                resultMap.put("resultInfo","下单成功");
+                return "buy_result";
+            } else {
+                return "error";
+            }
+        } catch (Exception e) {
+            log.error("Error occurred while hanlding purchase", e);
+            return "error";
+        }
     }
 
     @RequestMapping("/search")
@@ -80,4 +107,32 @@ public class PortalController {
         resultMap.put("goodsList", resultList);
         return "search";
     }
+
+    @RequestMapping("/order/query/{orderId}")
+    public String orderQuery(Map<String, Object> resultMap, @PathVariable long orderId) {
+        Order order = orderService.queryOrder(orderId);
+        if (order != null) {
+            log.info("Order ID: {} | Order Details: {}", orderId, JSON.toJSON(order));
+        }
+        resultMap.put("order",order);
+        String displayPrice = CommonUtils.changeF2Y(order.getPayPrice());
+        resultMap.put("orderShowPrice",displayPrice);
+        return "order_detail";
+    }
+
+    @RequestMapping("/order/payOrder/{orderId}")
+    public String payOrder(Map<String, Object> resultMap, @PathVariable long orderId) {
+        try {
+            orderService.payOrder(orderId);
+            return "redirect:/order/query/" + orderId;
+        } catch (IllegalArgumentException e) {
+            resultMap.put("errorInfo", e.getMessage());
+        } catch (IllegalStateException e) {
+            resultMap.put("errorInfo", e.getMessage());
+        } catch (Exception e) {
+            resultMap.put("errorInfo", "支付过程中发生未知错误");
+        }
+        return "error";
+    }
+
 }
