@@ -16,4 +16,6 @@ public interface GoodsService {
      * Retrieves product details using its ID
      */
     Goods queryGoodsById(long id);
+
+
 }
