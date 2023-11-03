@@ -70,29 +70,33 @@ public class PortalController {
 
 
     @RequestMapping("/buy/{userId}/{goodsId}")
-    public String handlePurchasRequest(Map<String, Object> resultMap, @PathVariable long userId, @PathVariable long goodsId) {
-        log.info("buy userId={}, goodsId={}", userId, goodsId);
+    public ModelAndView handlePurchasRequest(@PathVariable long userId, @PathVariable long goodsId) {
+        ModelAndView modelAndView = new ModelAndView();
         try {
+            log.info("buy userId={}, goodsId={}", userId, goodsId);
             //Fetch the goods from the database.
             Goods goods = goodsDao.queryGoodsById(goodsId);
             if (goods == null) {
-                resultMap.put("errorInfo", "下单失败");
-                return "error";
+               modelAndView.addObject("resultInfo","商品不存在，下单失败");
+               modelAndView.setViewName("error");
+               return modelAndView;
             }
-
             Order order = orderService.createOrder(userId,goodsId);
             //Create a new order using OrderService
             if (order != null) {
-                resultMap.put("order",order);
-                resultMap.put("resultInfo","下单成功");
-                return "buy_result";
+                modelAndView.addObject("order",order);
+                modelAndView.addObject("resultInfo","下单成功");
+                modelAndView.setViewName("buy_result");
             } else {
-                return "error";
+                modelAndView.addObject("resultInfo","创建订单失败");
+                modelAndView.setViewName("error");
             }
         } catch (Exception e) {
             log.error("Error occurred while hanlding purchase", e);
-            return "error";
+            modelAndView.addObject("resultInfo", "下单异常：原因" + e.getMessage());
+            modelAndView.setViewName("error");
         }
+        return modelAndView;
     }
 
     @RequestMapping("/search")

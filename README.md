@@ -26,3 +26,23 @@ In this part, we will send the status check message when creating our order henc
 ![OrderStatus](Images/OrderStatus7.png)
 We can also verify this in the console as follows:
 ![OrderTimeOutConsole](Images/OrderTimeOutConsole.png)
+
+3. **Inventory Deduction Code Development**:
+
+In this part: we first modify the `GoodsMapper.xml` and add the sql operation for 'lockStock', 'deductStock' and 'revertStock'. Then, we modify the portalController with the @RequestMapping("buy/{userId}/{goodsId}") and modify the return value to be ModelAndView so that it will be resolved by Spring's view resolver to an actual veiw in the Thymeleaf template. Then after the logic for payment succesful and order closeing when timeout logic is implemented. We can verify the lock available_stock change and the lock_stock change correspondingly. We start with the product id 1044 with the title: "三星 galaxy note2" and avaialbe stock: start with: `86995`:
+
+![StartStock](Images/StartConditionStock7.png)
+Then we can test things in two cases:
+  - **Add order and unpay**: 
+     - We tried to add the order and not pay it we can found that the available_stock deduct by 1 and lock_stock add by 1:
+     ![StockConditionChange1](Images/StockConditionChange17.png)
+     After one minutes we can found that the lock_stock is released and the avaialbe_stock added back by 1:
+     ![StockConvertBack1](Images/StatusRevertBack7.png)
+
+  - **Add order and pay**:
+    - This time if we just paid the order within one minute we can found: 
+    Firstly in the console:
+    ![StockConsole](Images/StockChangeCondole7.png)
+
+    And we can see that the lock_stock is released while the available stock decreaed by 1 and this means that the order decreaed correctly in the database correspondingly also successfully:
+    ![DataBaseChange](Images/DataBaseChange7.png)
