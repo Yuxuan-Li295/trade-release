@@ -25,6 +25,12 @@ public interface GoodsDao {
      * Modifies the product details
      */
     boolean updateGoods(Goods goods);
+
+    boolean lockStock(long id);
+
+    boolean deductStock(long id);
+
+    boolean revertStock(long id);
 }
 
 
