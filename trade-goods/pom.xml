@@ -68,6 +68,12 @@
             <version>1.2.75</version>
         </dependency>
 
+        <!--  rabbitMQ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
         <!--与ES安装版本保持一致-->
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
