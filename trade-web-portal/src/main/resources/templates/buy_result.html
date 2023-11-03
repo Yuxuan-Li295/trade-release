@@ -31,6 +31,10 @@
                             <div class="sendGoods">
                                 <em th:text="${resultInfo}"></em>
                             </div>
+                            <div th:if="${errorInfo}" class="alert alert-danger">
+                                <p th:text="${errorInfo}">Default error message</p>
+                            </div>
+
                         </li>
                         <li></li>
                         <li></li>
