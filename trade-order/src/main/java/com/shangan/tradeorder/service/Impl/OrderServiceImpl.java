@@ -1,14 +1,18 @@
 package com.shangan.tradeorder.service.Impl;
 
+import com.alibaba.fastjson.JSON;
 import com.shangan.tradegoods.db.dao.GoodsDao;
 import com.shangan.tradegoods.db.model.Goods;
+import com.shangan.tradegoods.service.GoodsService;
 import com.shangan.tradeorder.db.dao.OrderDao;
 import com.shangan.tradeorder.db.model.Order;
+import com.shangan.tradeorder.mq.OrderMessageSender;
 import com.shangan.tradeorder.service.OrderService;
 import com.shangan.tradeorder.utils.SnowflakeIdWorker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 
@@ -22,6 +26,12 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private GoodsDao goodsDao;
 
+    @Autowired
+    private GoodsService goodsService;
+
+    @Autowired
+    private OrderMessageSender orderMessageSender;
+
     private final SnowflakeIdWorker snowflakeIdWorker;
 
     public OrderServiceImpl() {
@@ -29,6 +39,14 @@ public class OrderServiceImpl implements OrderService {
     }
 
 
+    /*
+    Optimization:
+    1. Avoid race conditions by locking the row in the database for the product.
+    2. If the stock is enough, reduce the stock and proceed with the order creation.
+    3. If the stock is not enough, throw an exception
+    4. After the order is created, send a message to RabbitMQ to check the payment status of the order
+     */
+    @Transactional (rollbackFor = Exception.class)
     @Override
     public Order createOrder(long userId, long goodsId) {
         Order order = new Order();
@@ -44,16 +62,29 @@ public class OrderServiceImpl implements OrderService {
         Goods goods = goodsDao.queryGoodsById(goodsId);
         if (goods == null) {
             log.error("Goods not found");
-            return null;
+            throw new RuntimeException("Goods Not Found");
+        }
+        if (goods.getAvailableStock() <= 0) {
+            log.error("Goods stock is not enough for the goods: {} with the userId to be: {}",goodsId, userId);
+        }
+        if (goods.getAvailableStock() <= 0) {
+            log.error("Not enough stock for goodsId: {}", goodsId);
+            throw new RuntimeException("Not Enough Stock");
+        }
+        if (!goodsService.lockStock(goodsId)) {
+            log.error("Sorry, this order:{} cannot be locked", JSON.toJSONString(order));
+            throw new RuntimeException("Cannot lock this order");
         }
         order.setPayPrice(goods.getPrice());
         try {
             boolean insertResult = orderDao.insertOrder(order);
             if (insertResult) {
                 log.info("Order created successfully: {}", order);
+                orderMessageSender.sendOrderCreateMessage(JSON.toJSONString(order));
                 return order;
             } else {
                 log.error("Failed to create order for userId: {} and goodsId: {}", userId, goodsId);
+                throw new RuntimeException("Cannot Create this order!");
             }
 
         } catch (Exception e) {
@@ -67,18 +98,30 @@ public class OrderServiceImpl implements OrderService {
         return orderDao.getOrderById(orderId);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public void payOrder(long orderId) {
         Order order = orderDao.getOrderById(orderId);
         if (order == null) {
-            throw new IllegalArgumentException("订单ID" + orderId + "不存在");
+            log.error("订单ID:{} 不存在",orderId);
+            throw new RuntimeException("Cannot Pay non-exist order");
         }
         if (order.getStatus() != 1) {
-            throw new IllegalStateException("订单状态不是可支付状态");
+            log.error("订单ID:{} 非可支付状态",orderId);
+            throw new RuntimeException("订单状态无法支付");
         }
         log.info("正在付款中...");
         order.setPayTime(new Date());
         order.setStatus(2);
-        orderDao.updateOrder(order);
+        boolean updateResult = orderDao.updateOrder(order);
+        if (!updateResult) {
+            log.error("订单ID:{} 无法正常更新",orderId);
+            throw new RuntimeException("无法更新订单");
+        }
+        boolean deductResult = goodsService.deductStock(order.getGoodsId());
+        if (!deductResult) {
+            log.error("不能正常对ID:{} 进行库存扣减",orderId);
+            throw new RuntimeException("无法扣减库存");
+        }
     }
 }

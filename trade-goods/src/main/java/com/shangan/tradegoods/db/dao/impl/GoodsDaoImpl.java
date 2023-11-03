@@ -42,4 +42,38 @@ public class GoodsDaoImpl implements GoodsDao {
         int result = goodsMapper.updateByPrimaryKey(goods);
         return result > 0;
     }
+
+    @Override
+    public boolean lockStock(long id) {
+        int result = goodsMapper.lockStock(id);
+        if (result < 0) {
+            log.error("There is an error when lock the stock");
+            return false;
+        }
+        return true;
+    }
+
+    /*
+    Result < 1 -> number of affected rows < 1, no rows were affected (result < 1)
+    Means the operation failed, possibly because there was no stock left.
+     */
+    @Override
+    public boolean deductStock(long id) {
+        int result = goodsMapper.deductStock(id);
+        if (result < 1) {
+            log.error("Deduct stock failed");
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean revertStock(long id) {
+        int result = goodsMapper.revertStock(id);
+        if (result < 1) {
+            log.error("Revert stock failed");
+            return false;
+        }
+        return true;
+    }
 }

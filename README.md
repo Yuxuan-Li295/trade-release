@@ -21,4 +21,8 @@
   ![BackEndVerify](Images/MessageQueueTest7.png)
   It can be shown that the received time is exactly one minutes(60000 miliseconds) after the sending time!
 
-
+2. **Unpaid orders close logic development**:
+In this part, we will send the status check message when creating our order hence modified the `OrderServiceImpl.java` and in the `OrderPayCheckReceiver`, we check the status of the consumed order and close the corresponding order that not being paid beyond one minutes, for testing we just create a new order in the path: `http://localhost:8098/goods/1044` (there is already a goods: 三星 glaxy note2 with id 1044 exists). Then after we click 'buy now' and wait for one miniutes we can see that the order closed since we havn't buy it in one minutes and the order status has changed to 99 indicating this:
+![OrderStatus](Images/OrderStatus7.png)
+We can also verify this in the console as follows:
+![OrderTimeOutConsole](Images/OrderTimeOutConsole.png)

@@ -17,5 +17,20 @@ public interface GoodsService {
      */
     Goods queryGoodsById(long id);
 
+    /**
+     * Lock goods
+     */
+    boolean lockStock(long id);
+
+    /**
+     * Deduct stock
+     */
+    boolean deductStock(long id);
+
+    /**
+     * Locked Stock Replenishment
+     */
+    boolean revertStock(long id);
+
 
 }

@@ -20,11 +20,4 @@ public class OrderMessageSender {
         amqpTemplate.convertAndSend("order-event-exchange","order.create", message);
     }
 
-    public void sendPayStatusCheckDelayMessage(String message) {
-        log.info("发送订单支付状态确认延迟消息:{}",message);
-        amqpTemplate.convertAndSend("order-event-exchange","order.pay.status.check",message);
-    }
-
-
-
 }

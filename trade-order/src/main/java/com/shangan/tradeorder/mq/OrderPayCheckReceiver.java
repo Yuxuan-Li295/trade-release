@@ -28,47 +28,37 @@ public class OrderPayCheckReceiver {
 
     @RabbitListener(queues = "order.pay.status.check.queue")
     public void handleOrderStatus(String rawMessage) {
-
         log.info("Received Time:" + LocalDateTime.now() + "Content:" + rawMessage);
-//        log.debug("Received message: {}", rawMessage);
+        try {
+            //Deserialize the rawMessage to Order Object
+            Order order = JSON.parseObject(rawMessage,Order.class);
+            if (order == null) {
+                log.error("Unable to parse order from the raw message");
+                return;
+            }
+            Long orderId = order.getId();
+            Order dbOrder = orderDao.getOrderById(orderId);
+            if (dbOrder == null) {
+                log.error("Order with ID: {} does not exist", orderId);
+            }
+            switch (dbOrder.getStatus()) {
+                case 1:
+                    log.info("Order with ID:{} timeout! Order closed.",orderId);
+                    dbOrder.setStatus(99);
+                    orderDao.updateOrder(dbOrder);
+                    goodsService.revertStock(dbOrder.getGoodsId());
+                    break;
 
-//        Order receivedOrder = deserializeMessage(rawMessage);
-//
-//        if (receivedOrder == null) {
-//            log.warn("Failed to parse order from message: {}", rawMessage);
-//            return;
-//        }
-//
-//        checkAndUpdateOrderStatus(receivedOrder);
+                case 2:
+                    log.info("Order with ID:{} has been paid", orderId);
+                    break;
+
+                default:
+                    log.error("Order iwth ID:{} has an unknown status, something must be wrong!", orderId);
+            }
+        } catch (Exception e) {
+            log.error("Error occurred while checking payment status for the order");
+        }
+
     }
-//
-//    private Order deserializeMessage(String message) {
-//        try {
-//            return JSON.parseObject(message, Order.class);
-//        } catch (Exception e) {
-//            log.error("Error deserializing message", e);
-//            return null;
-//        }
-//    }
-//
-//    private void checkAndUpdateOrderStatus(Order order) {
-//        Order storedOrder = orderDao.getOrderById(order.getId());
-//        if (storedOrder.getStatus() == 1) {
-//            log.info("Order {} is overdue. Closing it now.",storedOrder.getId());
-//            closedOrder(storedOrder);
-//            releaseLockedStock(storedOrder);
-//        }
-//
-//    }
-//
-//    private void closedOrder(Order order) {
-//        order.setStatus(99);
-//        orderDao.updateOrder(order);
-//    }
-//
-//    private void releaseLockedStock(Order order) {
-//        goodsService.revertStock(order.getGoodsId());
-//    }
-
-
 }
