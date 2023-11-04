@@ -17,4 +17,11 @@ public class SeckillActivity {
     private Integer seckillPrice;
     private Integer oldPrice;
     private Date createTime;
+    public String getSeckillPriceInYuan() {
+        return String.format("%.2f", this.seckillPrice / 100.0);
+    }
+    public String getOldPriceInYuan() {
+        return String.format("%.2f", this.oldPrice / 100.0);
+    }
+
 }
