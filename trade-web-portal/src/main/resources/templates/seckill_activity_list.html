@@ -65,8 +65,8 @@
               <span th:text="${seckillActivity.activityName}">活动名称</span>
             </div>
             <div class='price'>
-              <b class='sec-price' th:text="'￥'+${seckillActivity.seckillPrice}"></b>
-              <b class='ever-price' th:text="'￥'+${seckillActivity.oldPrice}"></b>
+              <b class='sec-price' th:text="'$'+${seckillActivity.seckillPriceInYuan}"></b>
+              <b class='ever-price' th:text="'$'+${seckillActivity.oldPriceInYuan}"></b>
             </div>
             <div class='num'>
               <div>已售999</div>

@@ -39,3 +39,36 @@ CREATE TABLE `seckill_activity` (
   ![SecSkillDatabaseAdding](Images/SecskillDatabase7.png)
   
   ![AddingSecSkillActivityTest](Images/AddingSecSkillActivityTest.png)
+
+
+2. **Flash Sale Detail Page**:
+
+Then I developed the controller at the module `trade-web-portal` to deal with the display of a specific seckill goods(if there are no corresponding goodsId matches the info stored in the seckill activitiy, a white error page will display. An example of this test is conducted for the 'goods' 三星glaxy note2' and from the below page we can see the lightning deal price as well as the 'original price' are showned correctly and successfully in the page:
+
+![FlashSaleDetailTest](Images/FlashSaleDetailTest.png)
+
+
+3. **Flash Sale Activity List Page**:
+
+Finally, I developed the necessary controller code for the function of querying the whole list of currently active flash sale activity and resolves the issue of the money conversion as well as the `$` to `￥` issue by writing two help function in `SecKillActivity` class:
+
+```java
+    public String getSeckillPriceInYuan() {
+        return String.format("%.2f", this.seckillPrice / 100.0);
+    }
+    public String getOldPriceInYuan() {
+        return String.format("%.2f", this.oldPrice / 100.0);
+    }
+```
+
+And modify the corresponidng line in the `seckill_activity_list.html` as follows:
+```html
+            <div class='price'>
+              <b class='sec-price' th:text="'$'+${seckillActivity.seckillPriceInYuan}"></b>
+              <b class='ever-price' th:text="'$'+${seckillActivity.oldPriceInYuan}"></b>
+            </div>
+```
+
+Finally, it is found all the three test sale activities can be displayed correctly:
+
+![SecKillListPage](Images/SecKillListPage.png)

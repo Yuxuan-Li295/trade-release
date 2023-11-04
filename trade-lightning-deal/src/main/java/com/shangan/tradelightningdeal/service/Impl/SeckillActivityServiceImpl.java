@@ -30,4 +30,6 @@ public class SeckillActivityServiceImpl implements SeckillActivityService {
     public List<SeckillActivity> queryActivityByStatus(int status) {
         return seckillActivityDao.queryActivityByStatus(status);
     }
+
+
 }

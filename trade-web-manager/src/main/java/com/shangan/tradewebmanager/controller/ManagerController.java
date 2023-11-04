@@ -94,7 +94,7 @@ public class ManagerController {
                                          @RequestParam("startTime") String startTime,
                                          @RequestParam("endTime") String endTime,
                                          @RequestParam("availableStock") int availableStock,
-                                         @RequestParam("secSkillPrice") int seckillPrice,
+                                         @RequestParam("seckillPrice") int seckillPrice,
                                          @RequestParam("oldPrice") int oldPrice,
                                          Map<String, Object> resultMap) {
         //Create the SeckillActivity object and sets its properties
@@ -114,6 +114,7 @@ public class ManagerController {
         seckillActivity.setActivityStatus(1);
         seckillActivity.setLockStock(0);
         seckillActivity.setSeckillPrice(seckillPrice);
+        seckillActivity.setAvailableStock(availableStock);
         seckillActivity.setOldPrice(oldPrice);
         seckillActivity.setCreateTime(new Date());
         boolean isAdded = seckillActivityService.insertSeckillActivity(seckillActivity);
@@ -124,4 +125,5 @@ public class ManagerController {
         resultMap.put("seckillActivity",seckillActivity);
         return "add_skill_activity";
     }
+
 }

@@ -5,6 +5,8 @@ import com.shangan.tradegoods.db.dao.GoodsDao;
 import com.shangan.tradegoods.db.model.Goods;
 import com.shangan.tradegoods.service.GoodsService;
 import com.shangan.tradegoods.service.SearchService;
+import com.shangan.tradelightningdeal.db.model.SeckillActivity;
+import com.shangan.tradelightningdeal.service.SeckillActivityService;
 import com.shangan.tradewebportal.util.CommonUtils;
 import com.shangan.tradeorder.service.OrderService;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +39,8 @@ public class PortalController {
     @Autowired
     private OrderService orderService;
 
+    @Autowired
+    private SeckillActivityService seckillActivityService;
 
     @RequestMapping("/")
     public String redirectTohome() {
@@ -138,5 +143,47 @@ public class PortalController {
         }
         return "error";
     }
+
+    /*
+Flash Sale Activity Detail Page
+ */
+    @RequestMapping("/seckill/{seckillId}")
+    public String seckillInfo(Map<String, Object> resultMap, @PathVariable long seckillId) {
+        //Fetch the Seckillactivity details using the seckillId
+        SeckillActivity seckillActivity = seckillActivityService.querySeckillActivityById(seckillId);
+        //Check if the activity exists or not?
+        if (seckillActivity == null) {
+            log.error("No seckill activity found with ID:" + seckillId);
+            return "404";
+        }
+        String newPrice = CommonUtils.changeF2Y(seckillActivity.getSeckillPrice());
+        String oldPrice = CommonUtils.changeF2Y(seckillActivity.getOldPrice());
+        resultMap.put("seckillActivity", seckillActivity);
+        resultMap.put("seckillPrice", newPrice);
+        resultMap.put("oldPrice", oldPrice);
+        Goods goods = goodsService.queryGoodsById(seckillActivity.getGoodsId());
+        if (goods == null) {
+            log.error("There is no corresponding flash sale goods for seckillId:{}, goodsId:{}", seckillId, seckillActivity.getGoodsId());
+            throw new RuntimeException("Error searching falsh sale goods");
+        }
+        resultMap.put("goods",goods);
+        return "seckill_item";
+    }
+
+    @RequestMapping("/seckill/list")
+    public String flashSaleList(Map<String, Object> resultMap) {
+        //Fetch all ongoing seckillActivities
+        List<SeckillActivity> seckillActivities = seckillActivityService.queryActivityByStatus(1);
+
+        //Check if the list is empty
+        if (seckillActivities.isEmpty()) {
+            log.info("No ongoing seckill activites found!");
+            return null;
+        }
+
+        resultMap.put("seckillActivities", seckillActivities);
+        return "seckill_activity_list";
+    }
+
 
 }
