@@ -16,6 +16,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 
 import java.util.ArrayList;
@@ -185,5 +186,15 @@ Flash Sale Activity Detail Page
         return "seckill_activity_list";
     }
 
-
+    @ResponseBody
+    @RequestMapping("/seckill/buy/{userId}/{seckillId}")
+    public String seckillInfoBase(@PathVariable long seckillId) {
+        //boolean res = seckillActivityService.processSeckillReqBase(seckillId);
+        boolean res = seckillActivityService.processSeckillSolution(seckillId);
+        if (res) {
+            return "商品成功抢购";
+        } else {
+            return "商品已售完 未能成功抢购";
+        }
+    }
 }

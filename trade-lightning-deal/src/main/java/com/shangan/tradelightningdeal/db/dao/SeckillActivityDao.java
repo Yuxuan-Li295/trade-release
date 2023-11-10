@@ -11,4 +11,9 @@ public interface SeckillActivityDao {
     SeckillActivity querySeckillActivityById(long id);
 
     List<SeckillActivity> queryActivityByStatus(int status);
+
+    /**
+     * Update available stock
+     */
+    boolean updateAvailableStockByPrimaryKey(long id);
 }
