@@ -1,74 +1,98 @@
 # trade-release
 
-## Assignment for Class 8 
-**Completion Date:** Nov 3
+## Assignment for Class 9
+**Completion Date:** Nov 10
 
-1. **Flash Sale Activity**:
+1. **Mock the inventory overselling situation in high concurrent situation**:
   
-   - **Database Design**: 
+   - **Deduct Inventory Stock**: 
 
-   We first create the flash sale activity table:
+   We first write the function to deal with the flash sale request in `SeckillActivityService` and its implementing class and then create the `update` tag in the corresponding mapper and implement the update by primary key method in `SeckillActivityDao` interface and its corresponding implement class and finally the corresponding controller.
 
-  ```sql
-CREATE TABLE `seckill_activity` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '秒杀活动id',
-  `activity_name` VARCHAR(255) DEFAULT NULL COMMENT '秒杀活动名',
-  `goods_id` BIGINT DEFAULT NULL COMMENT '商品id',
-  `start_time` DATETIME DEFAULT NULL COMMENT '秒杀活动开始时间',
-  `end_time` DATETIME DEFAULT NULL COMMENT '秒杀活动结束时间',
-  `available_stock` INT DEFAULT 0 COMMENT '可用库存数量',
-  `lock_stock` INT DEFAULT 0 COMMENT '锁定库存数量',
-  `activity_status` INT DEFAULT NULL COMMENT '活动状态 0-下架 1-正常',
-  `seckill_price` INT DEFAULT NULL COMMENT '秒杀价格，单位为分',
-  `old_price` INT DEFAULT NULL COMMENT '商品价格，单位为分',
-  `create_time` DATETIME DEFAULT NULL COMMENT '创建时间',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb3 COMMENT='秒杀活动表';
-   ```
-     
-   - **Flash Sale Activity Creation**: 
-
-   In this part, we first configure the `application.properties` and the `mybatis-generator-config.xml` file and the tool for the inverse generation `GeneratorSqlmap` and finally the main start class. 
-
-   - **Flash Sale CRUD development for the database and the `SecSkillActivityDao` interface and its corresponding implementations. 
-
-   - **Add flash sale activity page: In this part, we modifty the 'pom.xml' and add the controller part for adding a new skill activity info. Then, we import the necessary template files for the flash sale pages.
-
-  For the testing, I tried to add a new skill activity "黑色星期五“ with goods_id 12345 start time today (11-04) and the ending time (11-11) one week after the starting time to create an one week period of sale and we can verify from both the console and the database that the test for adding skill activity is successful and the data is added to the database successfully:
-
-  ![SecSkillDatabaseAdding](Images/SecskillDatabase7.png)
-  
-  ![AddingSecSkillActivityTest](Images/AddingSecSkillActivityTest.png)
+   During the test process in this section, we will choose id: '4' corresponding to the flash sale activity: "黑色星期五”：
+   ![StockInitial8](Images/StockInitial8.png)
+   We can verify the basic behave by calling our controller mapping url and shown:
+   ![Seckillbuyurl](Images/Seckillbuyurl8.png)
+   we can also verify this in the console:
+   ![StockDeduct1Console](Images/StockDeductConsoleOne8.png)
 
 
-2. **Flash Sale Detail Page**:
+2. **Jmeter**:
 
-Then I developed the controller at the module `trade-web-portal` to deal with the display of a specific seckill goods(if there are no corresponding goodsId matches the info stored in the seckill activitiy, a white error page will display. An example of this test is conducted for the 'goods' 三星glaxy note2' and from the below page we can see the lightning deal price as well as the 'original price' are showned correctly and successfully in the page:
+In this part we first download and install JMeter and go to the `bin` directory and running the jmeter application.
 
-![FlashSaleDetailTest](Images/FlashSaleDetailTest.png)
+Then we create our own threading group and add the corresponding http request for the stress test and set the corresponding protocol, iP , port and the request path as follows(here we mock the behaviour for userId 12345 and the seckill activity also 4 in the request path):
+
+![Jmeter8](Images/JmeterConfigInterface8.png)
+Then we can demonstrate the overselling process by simulate 1000 concurrent request coming together:
+
+![ConcurrentTestConfig8](Images/ConcurrentTestConfig8.png)
+And then after strat running we can find that the stock is chane from the original 100 into a negative value:
+![OverSellSimulation8](Images/OverSellSimulation8.png)
 
 
-3. **Flash Sale Activity List Page**:
 
-Finally, I developed the necessary controller code for the function of querying the whole list of currently active flash sale activity and resolves the issue of the money conversion as well as the `$` to `￥` issue by writing two help function in `SecKillActivity` class:
+3. **Oversell Solution**:
+
+To resolve this issue and ensure the high performance in the high concurrent situation, we decided to use the RedisLua script solution. We can first download redis(http://redis.io/download), choose the version 6.0.16 and decompress it and got the `src` directory `./redis-server` and start it:
+
+![RedisInstall8](Images/RedisInstall8.png)
+
+Then, we may start to integrate the change into our project:
+First of all, for the `trade-lightning-deal` module, we can add the dependency into `pom.xml` and the `JedisConfig` file. 
+Then we may start to implement some basic of the redis worker class and conduct some unit test as follws:
 
 ```java
-    public String getSeckillPriceInYuan() {
-        return String.format("%.2f", this.seckillPrice / 100.0);
+public class RedisTest {
+    @Autowired
+    public RedisWorker redisWorker;
+
+    @Test
+    public void testSetKeyValue() {
+        String key = "Yuxuan";
+        String value = "The best SDE";
+        //Call the method to set
+        redisWorker.setKeyValue(key, value);
     }
-    public String getOldPriceInYuan() {
-        return String.format("%.2f", this.oldPrice / 100.0);
+
+    @Test
+    public void testGetValueByKey() {
+        String key = "Yuxuan";
+        String expectedValue = "The best SDE";
+        String actualValue = redisWorker.getValueByKey(key);
+        System.out.println(actualValue);
+        assertEquals(expectedValue, actualValue);
+    }
+}
+```
+The test are both successful with the `The best SDE` string being printed successfully:
+
+![testGetValueByKey](Images/RedisTestGetValueByKey8.png)
+
+We also implement another `setValue` function to receive the second parameter `long` type as an arugument and conduct the corresponding test:
+```java
+    @Test
+    public void setStockTest() {
+        redisWorker.setValue("stock:12345", 100L);
+    }
+
+    @Test
+    public void stockCheckTest() {
+        redisWorker.stockDeductCheck("stock:12345");
+        System.out.println(redisWorker.getValueByKey("stock:12345"));
     }
 ```
 
-And modify the corresponidng line in the `seckill_activity_list.html` as follows:
-```html
-            <div class='price'>
-              <b class='sec-price' th:text="'$'+${seckillActivity.seckillPriceInYuan}"></b>
-              <b class='ever-price' th:text="'$'+${seckillActivity.oldPriceInYuan}"></b>
-            </div>
-```
+The result shown that the inventory are deducted succesfully and "抢购成功“：
+![SetStock](Images/SetStockTest8.png)
+The stock content is changed from '100' to '99'.
 
-Finally, it is found all the three test sale activities can be displayed correctly:
+Finally, we just combine the logic for stock deduction adn the lua and write a new method named `processSecKillSolution` to utilize the redisWorker to deduct the stock and use stock lua to verify first before deduct the stock and also update to use this method in our portal controller.
 
-![SecKillListPage](Images/SecKillListPage.png)
+For the test, we again simulate the situation for the 1000 requests and could find this time the stock just deduct to zero and without the stock oversell problem anymore:
+
+![StockDeductSol](Images/StockDeductSol9.png)
+
+Now, if we try to run stockCheckTest again we can also verify the result that the stock just deduct to zero and we cannot checkout any stock anymore since there is no such available:
+
+![StockDeductCheck9](Images/StockDeductCheck9.png)

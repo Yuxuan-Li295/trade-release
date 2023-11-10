@@ -21,7 +21,7 @@ public class LightningDealTest {
     private SeckillActivityDao seckillActivityDao;
 
     @Test
-    public void insertGoodsTest() {
+    public void insertActivitiesTest() {
         //Create a simple SeckillActivity object for testing.
         SeckillActivity activity = new SeckillActivity();
         activity.setActivityName("黑色星期五");
