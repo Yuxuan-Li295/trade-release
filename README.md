@@ -1,22 +1,18 @@
 # trade-release
 
-## Assignment for Class 9
+## Assignment for Class 10
 **Completion Date:** Nov 10
 
-1. **Mock the inventory overselling situation in high concurrent situation**:
+1. **Asynchronisation of seconds orders**:
   
-   - **Deduct Inventory Stock**: 
+   - **Ceate order message configuration**:
+   In this part, we first modify the `RabbitMqConfig` to create the normal order queue for receive the order request and bidning it with the order status check to the exchanger. Then we modify the `OrderMessangeSensder` to first send the order message to the `to.create.order` queue and then utilize the 'sendpaystatusCheckDelayMessage' to send the message to another `order.create` queue to check for the order payment stauts. 
 
-   We first write the function to deal with the flash sale request in `SeckillActivityService` and its implementing class and then create the `update` tag in the corresponding mapper and implement the update by primary key method in `SeckillActivityDao` interface and its corresponding implement class and finally the corresponding controller.
-
-   During the test process in this section, we will choose id: '4' corresponding to the flash sale activity: "黑色星期五”：
-   ![StockInitial8](Images/StockInitial8.png)
-   We can verify the basic behave by calling our controller mapping url and shown:
-   ![Seckillbuyurl](Images/Seckillbuyurl8.png)
-   we can also verify this in the console:
-   ![StockDeduct1Console](Images/StockDeductConsoleOne8.png)
-
-
+   - **Order Create logic modification**:
+   For this part, we modify the `CreateOrder` function and instead of using `OrderDao` to insertOrder directly, we just first call the order message sender to send create order message and then return. Finally we create the createorderReceiver to process the newely created order and call the `orderMessageSender` to send the order status check message. We also conductedd the order create test:
+   ![OrderCrateTest9](Images/OrderCreatTest9.png)
+   As shown in the above image, the order experience the create order message process, checking the order creation of the sending order and send the payment status checking message. The message is received correctly, and after timeout, the order will closed and the corresponding message log will prompted. 
+ 
 2. **Jmeter**:
 
 In this part we first download and install JMeter and go to the `bin` directory and running the jmeter application.

@@ -107,4 +107,26 @@ public class RabbitMqConfig {
                 "order.pay.status.check",
                 null);
     }
+
+    /**
+     * Order create queue for asynchronization process
+     */
+    @Bean
+    public Queue createOrderQueue() {
+        Queue queue = new Queue("create.order.queue", true, false, false);
+        return queue;
+    }
+
+
+    /**
+     * Order status check and binding
+     */
+    @Bean
+    public Binding createOrderBinding() {
+        return new Binding("create.order.queue",
+                Binding.DestinationType.QUEUE,
+                "order-event-exchange",
+                "to.create.order",
+                null);
+    }
 }

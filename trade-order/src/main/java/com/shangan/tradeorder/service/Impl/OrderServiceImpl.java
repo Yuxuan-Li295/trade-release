@@ -76,21 +76,8 @@ public class OrderServiceImpl implements OrderService {
             throw new RuntimeException("Cannot lock this order");
         }
         order.setPayPrice(goods.getPrice());
-        try {
-            boolean insertResult = orderDao.insertOrder(order);
-            if (insertResult) {
-                log.info("Order created successfully: {}", order);
-                orderMessageSender.sendOrderCreateMessage(JSON.toJSONString(order));
-                return order;
-            } else {
-                log.error("Failed to create order for userId: {} and goodsId: {}", userId, goodsId);
-                throw new RuntimeException("Cannot Create this order!");
-            }
-
-        } catch (Exception e) {
-            log.error("Error occured while creating order for userId: {} and goodsId: {}", userId, goodsId, e);
-        }
-        return null;
+        orderMessageSender.sendOrderCreateMessage(JSON.toJSONString(order));
+        return order;
     }
 
     @Override
