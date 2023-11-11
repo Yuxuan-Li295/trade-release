@@ -34,7 +34,7 @@ public class RedisTest {
 
     @Test
     public void setStockTest() {
-        redisWorker.setValue("stock:4", 10L);
+        redisWorker.setValue("stock:4", 100L);
     }
 
     @Test

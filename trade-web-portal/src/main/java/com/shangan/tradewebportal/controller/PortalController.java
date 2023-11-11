@@ -186,15 +186,29 @@ Flash Sale Activity Detail Page
         return "seckill_activity_list";
     }
 
-    @ResponseBody
+//    @ResponseBody
+//    @RequestMapping("/seckill/buy/{userId}/{seckillId}")
+//    public String seckillInfoBase(@PathVariable long seckillId) {
+//        //boolean res = seckillActivityService.processSeckillReqBase(seckillId);
+//        boolean res = seckillActivityService.processSeckillSolution(seckillId);
+//        if (res) {
+//            return "商品成功抢购";
+//        } else {
+//            return "商品已售完 未能成功抢购";
+//        }
+//    }
     @RequestMapping("/seckill/buy/{userId}/{seckillId}")
-    public String seckillInfoBase(@PathVariable long seckillId) {
-        //boolean res = seckillActivityService.processSeckillReqBase(seckillId);
-        boolean res = seckillActivityService.processSeckillSolution(seckillId);
-        if (res) {
-            return "商品成功抢购";
-        } else {
-            return "商品已售完 未能成功抢购";
+    public ModelAndView seckill(@PathVariable long userId, @PathVariable long seckillId) {
+        ModelAndView modelAndView = new ModelAndView();
+        try {
+            Order order = seckillActivityService.processSeckillSolution(userId,seckillId);
+            modelAndView.addObject("resultInfo", "秒杀抢购成功");
+            modelAndView.addObject("order", order);
+            modelAndView.setViewName("buy_result");
+        } catch (Exception e) {
+            modelAndView.addObject("errorInfo", e.getMessage());
+            modelAndView.setViewName("error");
         }
+        return modelAndView;
     }
 }

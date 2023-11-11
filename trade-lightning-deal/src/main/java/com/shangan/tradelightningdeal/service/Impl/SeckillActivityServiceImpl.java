@@ -1,13 +1,19 @@
 package com.shangan.tradelightningdeal.service.Impl;
 
+import com.alibaba.fastjson.JSON;
 import com.shangan.tradelightningdeal.db.dao.SeckillActivityDao;
 import com.shangan.tradelightningdeal.db.model.SeckillActivity;
 import com.shangan.tradelightningdeal.service.SeckillActivityService;
 import com.shangan.tradelightningdeal.utils.RedisWorker;
+import com.shangan.tradeorder.service.LimitBuyService;
+import com.shangan.tradeorder.db.model.Order;
+import com.shangan.tradeorder.utils.SnowflakeIdWorker;
+import com.shangan.tradeorder.mq.OrderMessageSender;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.List;
 
 @Service
@@ -19,6 +25,13 @@ public class SeckillActivityServiceImpl implements SeckillActivityService {
     @Autowired
     private RedisWorker redisWorker;
 
+    @Autowired
+    private LimitBuyService limitBuyService;
+
+    private final SnowflakeIdWorker snowFlake = new SnowflakeIdWorker(6, 8);
+
+    @Autowired
+    private OrderMessageSender orderMessageSender;
 
     @Override
     public boolean insertSeckillActivity(SeckillActivity seckillActivity) {
@@ -57,15 +70,18 @@ public class SeckillActivityServiceImpl implements SeckillActivityService {
         }
     }
 
-    public boolean processSeckillSolution(long seckillActivityId) {
-        //Build the redis key for the stock
-        String stockKey = "stock:" + seckillActivityId;
-        //Try to deduct stock using Redisworker's atomic LUa script method
-        boolean stockDeducted = redisWorker.stockDeductCheck(stockKey);
-        if (!stockDeducted) {
-            // Stock deduction failed, either due to insufficient stock or other reasons
-            log.info("Unfortunately, the purchase failed. Better luck next time!");
-            return false;
+    public Order processSeckillSolution(long userId, long seckillActivityId) {
+        //加入限购校验逻辑
+        if (limitBuyService.isInLimitMember(seckillActivityId, userId)) {
+            log.error("活动:{} userId = {} 你已经购买了该商品，请勿重复购买", seckillActivityId, userId);
+            throw new RuntimeException("检测到用户重复购买商品");
+        }
+        //Redis 库存校验
+        String key = "stock:" + seckillActivityId;
+        boolean result = redisWorker.stockDeductCheck(key);
+        if (!result) {
+            log.error("抱歉，对于活动ID:{},userId={},抢购的人太多，库存不足",seckillActivityId,userId);
+            throw new RuntimeException("库存不足!");
         }
         //Query the seckill activity info
         SeckillActivity seckillActivity = seckillActivityDao.querySeckillActivityById(seckillActivityId);
@@ -73,14 +89,45 @@ public class SeckillActivityServiceImpl implements SeckillActivityService {
             log.error("Cannot find the corresponding seckill activity for seckillActivity Id:{}", seckillActivityId);
             throw new RuntimeException("Cannot find the corresponding seckill Activity");
         }
-        int stockNumber = seckillActivity.getAvailableStock();
-        if (stockNumber > 0) {
-            log.info("Congratulations! Purchase successful!");
-            seckillActivityDao.updateAvailableStockByPrimaryKey(seckillActivityId);
-            return true;
-        } else {
-            log.info("Unfortunately, the purchase failed. Better luck next time!");
-            return false;
+        //lock the stock
+        boolean lockResults = seckillActivityDao.lockStock(seckillActivityId);
+        if (!lockResults) {
+            log.info("抱歉 对于活动={}, userId={},商品太火了,已售完",seckillActivityId,userId);
+            throw new RuntimeException("商品抢购失败");
         }
+        log.info("商品成功抢购 恭喜你！！活动ID={}, userId={}",seckillActivityId,userId);
+        Order order = new Order();
+        long orderId = snowFlake.nextId();
+        order.setActivityId(seckillActivityId);
+        order.setId(orderId);
+        order.setActivityType(1);
+        order.setGoodsId(seckillActivity.getGoodsId());
+        order.setPayPrice(seckillActivity.getSeckillPrice());
+        order.setUserId(userId);
+        order.setStatus(1);
+        order.setCreateTime(new Date());
+
+        orderMessageSender.sendOrderCreateMessage(JSON.toJSONString(order));
+        return order;
     }
+
+    @Override
+    public boolean lockStock(long id) {
+        log.info("Lock Stock for 秒杀活动 ID:{}", id);
+        return seckillActivityDao.lockStock(id);
+    }
+
+    @Override
+    public boolean deductStock(long id) {
+        log.info("Deduct Stock for 秒杀活动 ID:{}", id);
+        return seckillActivityDao.deductStock(id);
+    }
+
+    @Override
+    public boolean revertStock(long id) {
+        log.info("Revert stock for 秒杀活动 ID:{}", id);
+        return seckillActivityDao.revertStock(id);
+    }
+
+
 }

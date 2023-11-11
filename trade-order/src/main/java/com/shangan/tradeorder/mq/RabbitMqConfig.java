@@ -129,4 +129,41 @@ public class RabbitMqConfig {
                 "to.create.order",
                 null);
     }
+
+    @Bean
+    public Queue seckillPaySuccessQueeu() {
+        Queue queue = new Queue("seckill.order.pay.success.queue", true, false, false);
+        return queue;
+    }
+
+    /*
+    Queue Binding for the falsh sale order payment
+     */
+    @Bean
+    public Binding seckillPaySuccessBinding() {
+        return new Binding("seckill.order.pay.success.queue",
+                Binding.DestinationType.QUEUE,
+                "order-event-exchange",
+                "seckill.order.pay.success",
+                null);
+    }
+
+    /*
+    Queue for flash sale order payment status check
+     */
+    @Bean
+    public Queue seckillPayTimeOutCheQueue() {
+        Queue queue = new Queue("seckill.order.pay.status.check.queue", true, false, false);
+        return queue;
+    }
+
+    @Bean
+    public Binding seckillPayTimeOutBinding() {
+        return new Binding("seckill.order.pay.status.check.queue",
+                Binding.DestinationType.QUEUE,
+                "order-event-exchange",
+                "order.pay.status.check",
+                null);
+    }
+
 }

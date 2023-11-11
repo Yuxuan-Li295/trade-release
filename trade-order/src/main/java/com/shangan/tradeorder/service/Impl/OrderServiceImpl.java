@@ -89,6 +89,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public void payOrder(long orderId) {
         Order order = orderDao.getOrderById(orderId);
+        log.info("订单{} 支付中",orderId);
         if (order == null) {
             log.error("订单ID:{} 不存在",orderId);
             throw new RuntimeException("Cannot Pay non-exist order");
@@ -105,10 +106,15 @@ public class OrderServiceImpl implements OrderService {
             log.error("订单ID:{} 无法正常更新",orderId);
             throw new RuntimeException("无法更新订单");
         }
-        boolean deductResult = goodsService.deductStock(order.getGoodsId());
-        if (!deductResult) {
-            log.error("不能正常对ID:{} 进行库存扣减",orderId);
-            throw new RuntimeException("无法扣减库存");
+        if (order.getActivityType() == 0) {
+            //->Normal goods
+            boolean deductResult = goodsService.deductStock(order.getGoodsId());
+            if (!deductResult) {
+                log.error("不能正常对ID:{} 进行库存扣减",orderId);
+                throw new RuntimeException("无法扣减库存");
+            }
+        } else if (order.getActivityType() == 1) {
+            orderMessageSender.sendSeckillPaySuccessMessage(JSON.toJSONString(order));
         }
     }
 }

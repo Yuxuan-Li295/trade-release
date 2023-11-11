@@ -2,6 +2,7 @@ package com.shangan.tradeorder.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.shangan.tradeorder.db.dao.OrderDao;
+import com.shangan.tradeorder.service.LimitBuyService;
 import lombok.extern.slf4j.Slf4j;
 import com.shangan.tradeorder.db.model.Order;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -17,6 +18,9 @@ public class CreateOrderReceiver {
     @Autowired
     private OrderMessageSender orderMessageSender;
 
+    @Autowired
+    private LimitBuyService limitBuyService;
+
     //Process the create order message
     @RabbitListener(queues = "create.order.queue")
     public void process(String message) {
@@ -28,5 +32,10 @@ public class CreateOrderReceiver {
             throw new RuntimeException("订单生成失败");
         }
         orderMessageSender.sendPayStatusCheckDelayMessage(JSON.toJSONString(order));
+
+        //创建订单成功，秒杀活动添加对于限购名单
+        if (order.getActivityType() == 1) {
+            limitBuyService.addLimitMember(order.getActivityId(), order.getUserId());
+        }
     }
 }
