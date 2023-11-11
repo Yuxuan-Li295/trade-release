@@ -36,6 +36,10 @@ public class OrderPayCheckReceiver {
                 log.error("Unable to parse order from the raw message");
                 return;
             }
+            //Only process normal order, if not then early return
+            if (order.getActivityType() != 0) {
+                return;
+            }
             Long orderId = order.getId();
             Order dbOrder = orderDao.getOrderById(orderId);
             if (dbOrder == null) {

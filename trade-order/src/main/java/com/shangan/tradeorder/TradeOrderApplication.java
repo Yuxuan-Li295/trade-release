@@ -10,6 +10,7 @@ import org.springframework.context.annotation.ComponentScan;
 @EnableRabbit
 @ComponentScan(basePackages = {"com.shangan"})
 @MapperScan({"com.shangan.tradeorder.db.mappers","com.shangan.tradegoods.db.mappers"})
+@MapperScan({"com.shangan.tradelightningdeal.db.mappers"})
 @SpringBootApplication
 public class TradeOrderApplication {
 

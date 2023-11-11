@@ -20,4 +20,11 @@ public interface SeckillActivityMapper {
     List<SeckillActivity> queryActivityByStatus(int status);
 
     int updateAvailableStockByPrimaryKey(long id);
+
+    int lockStock(long id);
+
+
+    int deductStock(long id);
+
+    int revertStock(long id);
 }

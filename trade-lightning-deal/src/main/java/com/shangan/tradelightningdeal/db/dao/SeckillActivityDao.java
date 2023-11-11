@@ -16,4 +16,9 @@ public interface SeckillActivityDao {
      * Update available stock
      */
     boolean updateAvailableStockByPrimaryKey(long id);
+
+    boolean lockStock(long id);
+    boolean deductStock(long id);
+    boolean revertStock(long id);
 }
+

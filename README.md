@@ -13,82 +13,100 @@
    ![OrderCrateTest9](Images/OrderCreatTest9.png)
    As shown in the above image, the order experience the create order message process, checking the order creation of the sending order and send the payment status checking message. The message is received correctly, and after timeout, the order will closed and the corresponding message log will prompted. 
  
-2. **Jmeter**:
+2. **Limit Buy**:
 
-In this part we first download and install JMeter and go to the `bin` directory and running the jmeter application.
+I apply Redis solution to put the flash sale request coming and judge whether the userid sets exists or not, if yes, we cannot buy the goods, if not then we create the order and deduct the stock using, `sadd` to add key member to the set key. Finally, if we do not process the payment successfully, we will also remove the userId. 
 
-Then we create our own threading group and add the corresponding http request for the stress test and set the corresponding protocol, iP , port and the request path as follows(here we mock the behaviour for userId 12345 and the seckill activity also 4 in the request path):
+1. LimitBuy Service Implementation:
 
-![Jmeter8](Images/JmeterConfigInterface8.png)
-Then we can demonstrate the overselling process by simulate 1000 concurrent request coming together:
+I add the necessary dependency from `trade-order` into `trade-lightning-deal` module and move the redis config file into the `trade-order` module to ensure directional dependency. 
+Then, I implemented limit buy service including add a member into the restrict purchase list, remove member and also check for whether the member is the the list or not. Then I implemented the Junit test for this function and it is verfied that all the functionality is good:
 
-![ConcurrentTestConfig8](Images/ConcurrentTestConfig8.png)
-And then after strat running we can find that the stock is chane from the original 100 into a negative value:
-![OverSellSimulation8](Images/OverSellSimulation8.png)
+![AddlimitMember9](Images/AddLimitMember9.png)
+
+The above shows we can add a user into the limited user lists.
+
+![checkInLimit](Images/IsInLimitMember9.png)
+
+After added, we can vrify it is indeed there.
+
+![RemoveFromLimit](Images/RemoveLimitTest10.png)
+We can also remove the user from the user list by calling the 'removeLimitMember' method for limitbuyservice
+
+After this, when we check again for the isInLimitMemberTest:
+![checkInLimit2](Images/IsInLimit2.png)
+Then, we can find that now the user with Id:'1234571' is no longer in the limited list anymore hence our code functions well. 
 
 
 
-3. **Oversell Solution**:
+3. **Oversell Overall Functionality Implementation**:
 
-To resolve this issue and ensure the high performance in the high concurrent situation, we decided to use the RedisLua script solution. We can first download redis(http://redis.io/download), choose the version 6.0.16 and decompress it and got the `src` directory `./redis-server` and start it:
+- **Creat order implementation**:
 
-![RedisInstall8](Images/RedisInstall8.png)
+For this part, firstly, we deal with the creat order part, we modify the `CreatOrderReceiver` to add the user into the limit purchase list. 
 
-Then, we may start to integrate the change into our project:
-First of all, for the `trade-lightning-deal` module, we can add the dependency into `pom.xml` and the `JedisConfig` file. 
-Then we may start to implement some basic of the redis worker class and conduct some unit test as follws:
+- **Seckill process implementation**:
 
-```java
-public class RedisTest {
-    @Autowired
-    public RedisWorker redisWorker;
+(1): Stock operaion:
 
-    @Test
-    public void testSetKeyValue() {
-        String key = "Yuxuan";
-        String value = "The best SDE";
-        //Call the method to set
-        redisWorker.setKeyValue(key, value);
-    }
+In this part, we first update the stock `SeckillActivityMapper.xml` to enable opeations including lockstock, deduct stock and reverse stock and then we also implement these methods in `SeckillActivityService` to enable the seckill activity has these necessary functions related to the order and the storage. 
 
-    @Test
-    public void testGetValueByKey() {
-        String key = "Yuxuan";
-        String expectedValue = "The best SDE";
-        String actualValue = redisWorker.getValueByKey(key);
-        System.out.println(actualValue);
-        assertEquals(expectedValue, actualValue);
-    }
-}
-```
-The test are both successful with the `The best SDE` string being printed successfully:
+(2): Limit on purchasing calibration
 
-![testGetValueByKey](Images/RedisTestGetValueByKey8.png)
+In this part, we continue modify the file `SeckillActivityImpl` to update the newely process seckill function that first verify whether the user has the purchase qualifications(is in the limit user list or not) then we using Redis's Lua to conduct the storage check. The third step is to check the corresponding seckill activity information before finally stock the storage and create the order. 
 
-We also implement another `setValue` function to receive the second parameter `long` type as an arugument and conduct the corresponding test:
-```java
-    @Test
-    public void setStockTest() {
-        redisWorker.setValue("stock:12345", 100L);
-    }
+(3) Adding 'error.html':
+We add the error error boosting page and update the portal controller to have a mapping in `/seckill/buy/{userid}/{seckillId}` format and we can see that once the user has already make the purchase and succesfully paid it, it will give the correspondiing information  mentioning this(will show in the final test part).
 
-    @Test
-    public void stockCheckTest() {
-        redisWorker.stockDeductCheck("stock:12345");
-        System.out.println(redisWorker.getValueByKey("stock:12345"));
-    }
-```
+- **Payment Successfully**:
 
-The result shown that the inventory are deducted succesfully and "抢购成功“：
-![SetStock](Images/SetStockTest8.png)
-The stock content is changed from '100' to '99'.
+In this part we implement the necessary message asynchronous processing to difine the flash sale realted `seckillPaySucessQueue` and its corresponding binding methods. Regarding the message sending, we implement the method  `sendSeckillPaySucessMessage` to deal with the situation where the user sucessfully make their payment and push this to `seckill.order.pay.sucess` queue. Finally, regarding the original `payorder` method, we use a 'if-else' branch to handle two cases differently, if it is the normal goods, we still call `goodServices.deductStock(id)` but if it is for the seckill activity's goods, we will call our `Ordermessagesender` to send the seckillpaysucess message out. 
 
-Finally, we just combine the logic for stock deduction adn the lua and write a new method named `processSecKillSolution` to utilize the redisWorker to deduct the stock and use stock lua to verify first before deduct the stock and also update to use this method in our portal controller.
+Message Receiving: For the message receiving we implemented a `SeckillPaySucessReceiver` in the trade-lightening module to deal with the message process when the payment for seckill is successfully
 
-For the test, we again simulate the situation for the 1000 requests and could find this time the stock just deduct to zero and without the stock oversell problem anymore:
+ **Payment Timeout and order close**:
 
-![StockDeductSol](Images/StockDeductSol9.png)
+ If the order does not being paid in the given time, we remove the user from the limited uerlist and revert the stock by utilizing the message asynchronous processing and using RabbitMQ to binding the same routing key into a unified queue and more than one queue can receie the same message(In our case: both the normal order check queue and the seckill order check queue will received the messages from the order-event-exchange).
 
-Now, if we try to run stockCheckTest again we can also verify the result that the stock just deduct to zero and we cannot checkout any stock anymore since there is no such available:
+ We define another queue called `seckillPayTimeCheQueue` and binding it to the central exchange to deal with the seckill order pay time out. 
 
-![StockDeductCheck9](Images/StockDeductCheck9.png)
+ Regarding the message Receiving: we defined two paycheckreceiver one for the normal order to deal with only normal goods order similarly as previous and also one receiver called: `SeckillPayTimeOutReceiver` to only deal with the seckill paytime out message and conduct the functionality I introduced earlier: (1) Remove the user from the userLimited List (2) Revert the stock for the 'SeckillActivity' (3) Update the order status to closing. 
+
+
+4. **Seckill Complete Process Test**:
+
+For this part, I will test the whole process in three different cases:
+
+For all the test we just test with the seckill activity '4' and for the same user with 'id' : 1234571
+
+Our start situation is that for the activity id '4': 黑色星期五, we have 95 avaiable stock:
+
+![startCondition](Images/DatabaseStartStatus10.png)
+
+ **First Payment and immediate pay**:
+
+ ![FirstandPay110](Images/FirstandPay110.png)
+ ![FirstandPay120](Images/FirstandPay1210.png)
+ ![FirstandPay130](Images/FirstandPay130.png)
+ ![FirstandPay140](Images/FirstandPay140.png)
+ ![FirstandPay150](Images/FirstandPay150.png)
+
+
+**First Payment and Order Payment Timeout**:
+ ![FirstNoPay110](Images/FirstNoPay110.png)
+ ![FirstNoPay210](Images/FirstNoPay210.png)
+ ![FirstNoPay310](Images/FirstNoPay310.png)
+ ![FirstNoPay410](Images/FirstNoPay410.png)
+ ![FirstNoPay510](Images/FirstNoPay510.png)
+ ![FirstNoPay610](Images/FirstNoPay610.png)
+
+ **User Paid again**:
+ ![SecondPay110](Images/SecondPay110.png)
+ ![SecondPay120](Images/SecondPay120.png)
+
+
+
+
+
+
+
