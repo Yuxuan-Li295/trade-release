@@ -1,112 +1,192 @@
 # trade-release
 
-## Assignment for Class 10
-**Completion Date:** Nov 10
+## Assignment for Class 11
 
-1. **Asynchronisation of seconds orders**:
+### Performance Optimization 
+
+**Completion Date:** Nov 17
+
+1. **Cache Warm Up**:
+
+Cache warm-up is the advance loading of relevant cached data directly into the cache system. To avoid the problem of querying the database first and then caching the data when the user requests, the user can directly query the cached data that has been warmed up in advance, reducing the pressure on the DB and improve query speed. 
   
-   - **Ceate order message configuration**:
-   In this part, we first modify the `RabbitMqConfig` to create the normal order queue for receive the order request and bidning it with the order status check to the exchanger. Then we modify the `OrderMessangeSensder` to first send the order message to the `to.create.order` queue and then utilize the 'sendpaystatusCheckDelayMessage' to send the message to another `order.create` queue to check for the order payment stauts. 
+   - **Write the Seckill Info into Redis**: 
 
-   - **Order Create logic modification**:
-   For this part, we modify the `CreateOrder` function and instead of using `OrderDao` to insertOrder directly, we just first call the order message sender to send create order message and then return. Finally we create the createorderReceiver to process the newely created order and call the `orderMessageSender` to send the order status check message. We also conductedd the order create test:
-   ![OrderCrateTest9](Images/OrderCreatTest9.png)
-   As shown in the above image, the order experience the create order message process, checking the order creation of the sending order and send the payment status checking message. The message is received correctly, and after timeout, the order will closed and the corresponding message log will prompted. 
- 
-2. **Limit Buy**:
-
-I apply Redis solution to put the flash sale request coming and judge whether the userid sets exists or not, if yes, we cannot buy the goods, if not then we create the order and deduct the stock using, `sadd` to add key member to the set key. Finally, if we do not process the payment successfully, we will also remove the userId. 
-
-1. LimitBuy Service Implementation:
-
-I add the necessary dependency from `trade-order` into `trade-lightning-deal` module and move the redis config file into the `trade-order` module to ensure directional dependency. 
-Then, I implemented limit buy service including add a member into the restrict purchase list, remove member and also check for whether the member is the the list or not. Then I implemented the Junit test for this function and it is verfied that all the functionality is good:
-
-![AddlimitMember9](Images/AddLimitMember9.png)
-
-The above shows we can add a user into the limited user lists.
-
-![checkInLimit](Images/IsInLimitMember9.png)
-
-After added, we can vrify it is indeed there.
-
-![RemoveFromLimit](Images/RemoveLimitTest10.png)
-We can also remove the user from the user list by calling the 'removeLimitMember' method for limitbuyservice
-
-After this, when we check again for the isInLimitMemberTest:
-![checkInLimit2](Images/IsInLimit2.png)
-Then, we can find that now the user with Id:'1234571' is no longer in the limited list anymore hence our code functions well. 
+   The first part is to write the Seckill information into the Redis including the stock information with the `Long ` type number, the SeckillActivity's full information in `JSON String` format and the goods information (the goods in the seckill activity) also in the same format. Then I modify the `ManagerController` to add the corresponding path for jumping to cache warm-up page and also the path for write the corresponding seckill activity id and its corresponding information into the cache
 
 
+2. **Add push Seckill Page**:
 
-3. **Oversell Overall Functionality Implementation**:
+Add the `push_seckill_cache.html`
 
-- **Creat order implementation**:
+3. **Detail page got data from the cache**:
 
-For this part, firstly, we deal with the creat order part, we modify the `CreatOrderReceiver` to add the user into the limit purchase list. 
+I add the logic and mainly changed the method for the mapping for the flash sale activity detail page, the main logic is to first tried to get the data from the `Redis` and if there are no corresponding information in the cache then we query the database:
 
-- **Seckill process implementation**:
-
-(1): Stock operaion:
-
-In this part, we first update the stock `SeckillActivityMapper.xml` to enable opeations including lockstock, deduct stock and reverse stock and then we also implement these methods in `SeckillActivityService` to enable the seckill activity has these necessary functions related to the order and the storage. 
-
-(2): Limit on purchasing calibration
-
-In this part, we continue modify the file `SeckillActivityImpl` to update the newely process seckill function that first verify whether the user has the purchase qualifications(is in the limit user list or not) then we using Redis's Lua to conduct the storage check. The third step is to check the corresponding seckill activity information before finally stock the storage and create the order. 
-
-(3) Adding 'error.html':
-We add the error error boosting page and update the portal controller to have a mapping in `/seckill/buy/{userid}/{seckillId}` format and we can see that once the user has already make the purchase and succesfully paid it, it will give the correspondiing information  mentioning this(will show in the final test part).
-
-- **Payment Successfully**:
-
-In this part we implement the necessary message asynchronous processing to difine the flash sale realted `seckillPaySucessQueue` and its corresponding binding methods. Regarding the message sending, we implement the method  `sendSeckillPaySucessMessage` to deal with the situation where the user sucessfully make their payment and push this to `seckill.order.pay.sucess` queue. Finally, regarding the original `payorder` method, we use a 'if-else' branch to handle two cases differently, if it is the normal goods, we still call `goodServices.deductStock(id)` but if it is for the seckill activity's goods, we will call our `Ordermessagesender` to send the seckillpaysucess message out. 
-
-Message Receiving: For the message receiving we implemented a `SeckillPaySucessReceiver` in the trade-lightening module to deal with the message process when the payment for seckill is successfully
-
- **Payment Timeout and order close**:
-
- If the order does not being paid in the given time, we remove the user from the limited uerlist and revert the stock by utilizing the message asynchronous processing and using RabbitMQ to binding the same routing key into a unified queue and more than one queue can receie the same message(In our case: both the normal order check queue and the seckill order check queue will received the messages from the order-event-exchange).
-
- We define another queue called `seckillPayTimeCheQueue` and binding it to the central exchange to deal with the seckill order pay time out. 
-
- Regarding the message Receiving: we defined two paycheckreceiver one for the normal order to deal with only normal goods order similarly as previous and also one receiver called: `SeckillPayTimeOutReceiver` to only deal with the seckill paytime out message and conduct the functionality I introduced earlier: (1) Remove the user from the userLimited List (2) Revert the stock for the 'SeckillActivity' (3) Update the order status to closing. 
+```java
+String activityKey = "seckill:activity" + seckillId;
+        String activityJson = redisWorker.getValueByKey(activityKey);
+        long startCache = System.nanoTime();
+        if (activityJson != null) {
+            seckillActivity = JSON.parseObject(activityJson, SeckillActivity.class);
+            log.info("Hit the cache for the SeckillActivity:{}", activityJson);
+        } else {
+            long startDb = System.nanoTime();
+            seckillActivity = seckillActivityService.querySeckillActivityById(seckillId);
+            long endDb = System.nanoTime();
+            log.info("Database query time for SeckillActivity: {} nanoseconds",(endDb - startDb));
+            //Check if the activity exists or not?
+            if (seckillActivity == null) {
+                log.error("No seckill activity found with ID:" + seckillId);
+                throw new RuntimeException("Do not found the corresponding seckillInfo");
+            }
+            //Put the info into Redis
+            redisWorker.setValue(activityKey,JSON.toJSONString(seckillActivity));
+        }
+```
+Moreover, in order to test and compare the different execution time for the redis cache and normal database query: I applied the Java's embedded method: `System.nanoTime()` for measuring such short time operation as it provided a higher precision. 
 
 
-4. **Seckill Complete Process Test**:
+3. **Testing for the Cache Warm-Up**:
 
-For this part, I will test the whole process in three different cases:
+For the testing part: 
 
-For all the test we just test with the seckill activity '4' and for the same user with 'id' : 1234571
+We first add the cache warm-up for the seckillactivity: "黑色星期五“ with id: 4 into our system(with path: `/pushSeckillCacheAction`)
 
-Our start situation is that for the activity id '4': 黑色星期五, we have 95 avaiable stock:
+![AddCache](Images/AddCache11.png)
 
-![startCondition](Images/DatabaseStartStatus10.png)
+Then in order to verify that we indeed hit the cache we search for the corresponding seckill activity:
 
- **First Payment and immediate pay**:
+![SecKillHit11](Images/SecKillHit11.png)
 
- ![FirstandPay110](Images/FirstandPay110.png)
- ![FirstandPay120](Images/FirstandPay1210.png)
- ![FirstandPay130](Images/FirstandPay130.png)
- ![FirstandPay140](Images/FirstandPay140.png)
- ![FirstandPay150](Images/FirstandPay150.png)
+The goods corresponding to the seckillactivity can be displayed successfully and we can verify from the console:
 
+![ConsoleVerfication11](Images/ConsoleVerification111.png)
 
-**First Payment and Order Payment Timeout**:
- ![FirstNoPay110](Images/FirstNoPay110.png)
- ![FirstNoPay210](Images/FirstNoPay210.png)
- ![FirstNoPay310](Images/FirstNoPay310.png)
- ![FirstNoPay410](Images/FirstNoPay410.png)
- ![FirstNoPay510](Images/FirstNoPay510.png)
- ![FirstNoPay610](Images/FirstNoPay610.png)
+Moreover, in order to simply verify the advantage of the Redis cache and also compared about the running time, I conducted two tests with the operation to searching at the first time for one seckill activity that stored in the cache and another without storing in the cache:
 
- **User Paid again**:
- ![SecondPay110](Images/SecondPay110.png)
- ![SecondPay120](Images/SecondPay120.png)
+![TimeInCache11](Images/TimeInCache11.png)
+It is found that the total execution time for searching out the corresponding information is about 44.9 millisconds. Then, I also tried to search one seckill activity called "双十一” with id: 10
 
+![WithoutCacheSeckill11](Images/WithoutCacheSeckill11.png)
+Then, we also verified the corresponding searching speed and found it is:
+![TimeWithoutCache11](Images/TimeWithoutCache11.png)
+The corresponding time for searching out info is about 336.9 milliseconds. It is found that there is an order of magnitude improvement for the `frist-time` searching speed using cache warm-up. 
 
+4. **Page Static Development**:
 
+Page static is the process to turn the original dynamic websites(by querying the data in the databse to render the page) into a static web page generated by the static technology, so that when the user accesses the webpage, the server responds to the user directly to the static page, there is no dynamic query database process. 
 
+For the development of the static page: 
+We first add the necessary dependency for the Thymeleaf and then create static page service in `trade-web-portal` and then write the corresponding test class and tried to generate a static page for our seckill activity with id: 4 (for "黑色星期五“)。
 
+5. **Test for the Static Page**:
 
+I moved the generated static html page file `seckill_item_4.html` into the static folder of the current package file:
 
+![CreateStaticPage11](Images/creatStaticPageTest11.png)
+
+For the static page, we can also viisted directly by typeing the corresponding html name in our `localhost` path:
+
+![StaticPageDisplay11](Images/StaticPageDisplay11.png)
+
+`Question: How to integrate this into projects in practice?`
+
+```java
+ long startTotalStatic = System.nanoTime();
+        //Locate the static page
+        Resource resource = resourceLoader.getResource("classpath:/static/seckill_item_" + seckillId + ".html");
+        if (resource.exists()) {
+            //Redirect since static page exists
+            long endTotalStatic = System.nanoTime();
+            log.info("Find static Page! Total execution time: {} nanoseconds", (endTotalStatic - startTotalStatic));
+            return "redirect:/seckill_item_" + seckillId + ".html";
+        } else {
+            other logic to take data from Redis or database normally...
+        }
+
+```
+
+In my implementation, I add the logic into our controller for seckillInfo with the path for mapping to be `/seckill/{seckillId}` and when the user request to find some details about certain seckill activity, we will first tried to use `ResourceLoader` to find the corresponding static file and if found we will use the `redirect:` prefix to redict the client to the new URL corresponding to our static resource. If the corresponding resource does not exists(we do not have the corresponding static page), we just back to the original logic and generate the page dynamically. 
+
+As you can see in the above code, I also tried to calculate the time needed for loading the static page for seckillActivity id： 4， it is found the loading time is only: 0.06 milliseconds, much much faster than dynamic loding page. 
+
+![LoadingTimeStaticPage11](Images/LoadingTimeStaticPage11.png)
+
+5. **Handle Malicious Request**:
+
+The malicious request refers to some program that forge normal requests and consume the server's resources and causes server to down. To handle this kind of requests: In our projects, we take the method of the blacklist mechanisum that takes risk control identification for the blacklist database's IP and userId. To implement this, the logic is to put the blacklist's user ID into Redis and judge whehter the corresponding user is in the blacklist or not before we conduct any purchase request. We create a `RiskBlackListService` in `trade-goods` module that has method to add one or more userId into the blacklist control list, check whether a given userId is in there or not and remove a certain userId out of the list. Then during the `createOrder` logic, we add the following code before I handle the normal user's create request:
+
+```java
+    //First check whether the user is in the black list or not
+        if (riskBlackListService.isUserInBlackList(userId)) {
+            log.error("User with ID {} is in the blacklist, cannot create order", userId);
+            return null;
+        }
+```
+The logic is that if I found that the given userId is in the BlackList, I just retrun `null` and later in my portal controller's handle purchase request method, I wrote:
+```java
+            Order order = orderService.createOrder(userId,goodsId);
+            //Create a new order using OrderService
+            if (order != null) {
+                modelAndView.addObject("order",order);
+                modelAndView.addObject("errorInfo","下单成功");
+                modelAndView.setViewName("buy_result");
+            } else {
+                modelAndView.addObject("errorInfo","创建订单失败 用户已在黑名单中");
+                modelAndView.setViewName("error");
+            }
+```
+
+5. **Test for Malicious Request**:
+For testing our `RiskBlackListService` method, we create the following test class: 
+```java
+public class RiskBlackListServiceTest {
+
+    @Autowired
+    private RiskBlackListService riskBlackListService;
+
+    private long testUserId;
+
+    @Before
+    public void setUp() {
+        testUserId = 123456L; //The choosen test userId
+    }
+
+    @Test
+    public void addAndCheckRiskBlackListMemberTest() {
+        //Add user to the black user list
+        riskBlackListService.addRiskBlackListMember(testUserId);
+        //Check whether the user is in the black list or not
+        boolean isInBlacklist = riskBlackListService.isUserInBlackList(testUserId);
+        assertTrue("User should be in the blacklist", isInBlacklist);
+    }
+
+    @Test
+    public void removeAndCheckRiskBlackListMemberTest() {
+        //First ensure the user is in the blacklist
+        riskBlackListService.addRiskBlackListMember(testUserId);
+        //Then remove it from the blacklist
+        riskBlackListService.removeRiskBlackListMember(testUserId);
+        //Check whether the user is still in the black list
+        boolean isInBlacklist = riskBlackListService.isUserInBlackList(testUserId);
+        assertFalse("User should not be in the blacklist anymore", isInBlacklist);
+    }
+
+}
+```
+
+For the testing we can verified that we can add a user into the black list and then verify it is indeed being added into it:
+![AddBlockList](Images/AddBlackListUser11.png)
+After adding that and when the user want to conduct the purchase, the system will block it:
+
+![CreatOrderFailed11](Images/CreatOrderFailed11.png)
+
+Then we can also remove certain user from the black list:
+
+![RemoveBlockList11](Images/RemoveBlockList11.png)
+
+It can be verified that the user indeed being removed from the limited list successfully and now when the same user tried to buy the same product:
+
+![UserPurchaseSucess11](Images/UserPurchaseSuccess11.png)
+![UserPurchaseSucessConsole11](Images/UserPurcahseSucessConsole.png)

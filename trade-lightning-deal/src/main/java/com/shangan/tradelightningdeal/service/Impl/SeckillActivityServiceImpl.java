@@ -1,6 +1,8 @@
 package com.shangan.tradelightningdeal.service.Impl;
 
 import com.alibaba.fastjson.JSON;
+import com.shangan.tradegoods.db.model.Goods;
+import com.shangan.tradegoods.service.GoodsService;
 import com.shangan.tradelightningdeal.db.dao.SeckillActivityDao;
 import com.shangan.tradelightningdeal.db.model.SeckillActivity;
 import com.shangan.tradelightningdeal.service.SeckillActivityService;
@@ -32,6 +34,9 @@ public class SeckillActivityServiceImpl implements SeckillActivityService {
 
     @Autowired
     private OrderMessageSender orderMessageSender;
+
+    @Autowired
+    private GoodsService goodsService;
 
     @Override
     public boolean insertSeckillActivity(SeckillActivity seckillActivity) {
@@ -127,6 +132,25 @@ public class SeckillActivityServiceImpl implements SeckillActivityService {
     public boolean revertStock(long id) {
         log.info("Revert stock for 秒杀活动 ID:{}", id);
         return seckillActivityDao.revertStock(id);
+    }
+
+    @Override
+    public void pushSeckillActivityInfoToCache(long id) {
+        //Query SeckillActivity Info
+        SeckillActivity seckillActivity = seckillActivityDao.querySeckillActivityById(id);
+        if (seckillActivity == null) {
+            log.error("Seckill activity not found for id:{}", id);
+            throw new RuntimeException("Seckill Activity not found");
+        }
+        //Put the seckillactivity stock info into Redis
+        String stockKey = "stock:" + id;
+        redisWorker.setValue(stockKey, Long.valueOf(seckillActivity.getAvailableStock()));
+        //Put the complete seckillActivity info into redis
+        String activityKey = "seckill:activity" + seckillActivity.getId();
+        redisWorker.setValue(activityKey, JSON.toJSONString(seckillActivity));
+        //Goods info for the seckill Activity
+        Goods goods = goodsService.queryGoodsById(seckillActivity.getGoodsId());
+        redisWorker.setValue("seckillActivity_goods:" + seckillActivity.getGoodsId(), JSON.toJSONString(goods));
     }
 
 

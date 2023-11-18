@@ -30,6 +30,15 @@ public class RedisWorker {
         jedisClient.close();
     }
 
+    /*
+     * Function overloading
+     */
+    public void setValue(String key, String value) {
+        Jedis jedisClient = jedisPool.getResource();
+        jedisClient.set(key, value);
+        jedisClient.close();
+    }
+
     public String getValueByKey(String key) {
         try (Jedis jedis = jedisPool.getResource()) {
             String value = jedis.get(key);

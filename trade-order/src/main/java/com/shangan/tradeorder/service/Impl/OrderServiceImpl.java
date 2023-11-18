@@ -8,6 +8,7 @@ import com.shangan.tradeorder.db.dao.OrderDao;
 import com.shangan.tradeorder.db.model.Order;
 import com.shangan.tradeorder.mq.OrderMessageSender;
 import com.shangan.tradeorder.service.OrderService;
+import com.shangan.tradeorder.service.RiskBlackListService;
 import com.shangan.tradeorder.utils.SnowflakeIdWorker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,9 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private OrderMessageSender orderMessageSender;
 
+    @Autowired
+    private RiskBlackListService riskBlackListService;
+
     private final SnowflakeIdWorker snowflakeIdWorker;
 
     public OrderServiceImpl() {
@@ -49,6 +53,11 @@ public class OrderServiceImpl implements OrderService {
     @Transactional (rollbackFor = Exception.class)
     @Override
     public Order createOrder(long userId, long goodsId) {
+        //First check whether the user is in the black list or not
+        if (riskBlackListService.isUserInBlackList(userId)) {
+            log.error("User with ID {} is in the blacklist, cannot create order", userId);
+            return null;
+        }
         Order order = new Order();
         //使用SnowflakeIdWorker生成唯一的ID
         long orderId = snowflakeIdWorker.nextId();

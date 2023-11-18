@@ -19,4 +19,6 @@ public interface SeckillActivityService {
     boolean lockStock(long id);
     boolean deductStock(long id);
     boolean revertStock(long id);
+
+    public void pushSeckillActivityInfoToCache(long id);
 }
