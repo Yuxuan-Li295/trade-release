@@ -8,6 +8,7 @@ import com.shangan.tradeorder.db.dao.OrderDao;
 import com.shangan.tradeorder.db.model.Order;
 import com.shangan.tradeorder.mq.OrderMessageSender;
 import com.shangan.tradeorder.service.OrderService;
+import com.shangan.tradeorder.service.RiskBlackListService;
 import com.shangan.tradeorder.utils.SnowflakeIdWorker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,9 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private OrderMessageSender orderMessageSender;
 
+    @Autowired
+    private RiskBlackListService riskBlackListService;
+
     private final SnowflakeIdWorker snowflakeIdWorker;
 
     public OrderServiceImpl() {
@@ -49,6 +53,11 @@ public class OrderServiceImpl implements OrderService {
     @Transactional (rollbackFor = Exception.class)
     @Override
     public Order createOrder(long userId, long goodsId) {
+        //First check whether the user is in the black list or not
+        if (riskBlackListService.isUserInBlackList(userId)) {
+            log.error("User with ID {} is in the blacklist, cannot create order", userId);
+            return null;
+        }
         Order order = new Order();
         //使用SnowflakeIdWorker生成唯一的ID
         long orderId = snowflakeIdWorker.nextId();
@@ -76,21 +85,8 @@ public class OrderServiceImpl implements OrderService {
             throw new RuntimeException("Cannot lock this order");
         }
         order.setPayPrice(goods.getPrice());
-        try {
-            boolean insertResult = orderDao.insertOrder(order);
-            if (insertResult) {
-                log.info("Order created successfully: {}", order);
-                orderMessageSender.sendOrderCreateMessage(JSON.toJSONString(order));
-                return order;
-            } else {
-                log.error("Failed to create order for userId: {} and goodsId: {}", userId, goodsId);
-                throw new RuntimeException("Cannot Create this order!");
-            }
-
-        } catch (Exception e) {
-            log.error("Error occured while creating order for userId: {} and goodsId: {}", userId, goodsId, e);
-        }
-        return null;
+        orderMessageSender.sendOrderCreateMessage(JSON.toJSONString(order));
+        return order;
     }
 
     @Override
@@ -102,6 +98,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public void payOrder(long orderId) {
         Order order = orderDao.getOrderById(orderId);
+        log.info("订单{} 支付中",orderId);
         if (order == null) {
             log.error("订单ID:{} 不存在",orderId);
             throw new RuntimeException("Cannot Pay non-exist order");
@@ -118,10 +115,15 @@ public class OrderServiceImpl implements OrderService {
             log.error("订单ID:{} 无法正常更新",orderId);
             throw new RuntimeException("无法更新订单");
         }
-        boolean deductResult = goodsService.deductStock(order.getGoodsId());
-        if (!deductResult) {
-            log.error("不能正常对ID:{} 进行库存扣减",orderId);
-            throw new RuntimeException("无法扣减库存");
+        if (order.getActivityType() == 0) {
+            //->Normal goods
+            boolean deductResult = goodsService.deductStock(order.getGoodsId());
+            if (!deductResult) {
+                log.error("不能正常对ID:{} 进行库存扣减",orderId);
+                throw new RuntimeException("无法扣减库存");
+            }
+        } else if (order.getActivityType() == 1) {
+            orderMessageSender.sendSeckillPaySuccessMessage(JSON.toJSONString(order));
         }
     }
 }

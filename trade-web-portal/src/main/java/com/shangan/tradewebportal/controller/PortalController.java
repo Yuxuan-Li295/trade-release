@@ -7,11 +7,15 @@ import com.shangan.tradegoods.service.GoodsService;
 import com.shangan.tradegoods.service.SearchService;
 import com.shangan.tradelightningdeal.db.model.SeckillActivity;
 import com.shangan.tradelightningdeal.service.SeckillActivityService;
+import com.shangan.tradelightningdeal.utils.RedisWorker;
 import com.shangan.tradewebportal.util.CommonUtils;
 import com.shangan.tradeorder.service.OrderService;
 import lombok.extern.slf4j.Slf4j;
 import com.shangan.tradeorder.db.model.Order;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.core.io.Resource;
+import org.springframework.boot.autoconfigure.cache.CacheProperties;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,6 +46,12 @@ public class PortalController {
 
     @Autowired
     private SeckillActivityService seckillActivityService;
+
+    @Autowired
+    private RedisWorker redisWorker;
+
+    @Autowired
+    private ResourceLoader resourceLoader;
 
     @RequestMapping("/")
     public String redirectTohome() {
@@ -83,7 +93,7 @@ public class PortalController {
             //Fetch the goods from the database.
             Goods goods = goodsDao.queryGoodsById(goodsId);
             if (goods == null) {
-               modelAndView.addObject("resultInfo","商品不存在，下单失败");
+               modelAndView.addObject("errorInfo","商品不存在，下单失败");
                modelAndView.setViewName("error");
                return modelAndView;
             }
@@ -91,15 +101,15 @@ public class PortalController {
             //Create a new order using OrderService
             if (order != null) {
                 modelAndView.addObject("order",order);
-                modelAndView.addObject("resultInfo","下单成功");
+                modelAndView.addObject("errorInfo","下单成功");
                 modelAndView.setViewName("buy_result");
             } else {
-                modelAndView.addObject("resultInfo","创建订单失败");
+                modelAndView.addObject("errorInfo","创建订单失败 用户已在黑名单中");
                 modelAndView.setViewName("error");
             }
         } catch (Exception e) {
             log.error("Error occurred while hanlding purchase", e);
-            modelAndView.addObject("resultInfo", "下单异常：原因" + e.getMessage());
+            modelAndView.addObject("errorInfo", "下单异常：原因" + e.getMessage());
             modelAndView.setViewName("error");
         }
         return modelAndView;
@@ -150,25 +160,76 @@ Flash Sale Activity Detail Page
  */
     @RequestMapping("/seckill/{seckillId}")
     public String seckillInfo(Map<String, Object> resultMap, @PathVariable long seckillId) {
-        //Fetch the Seckillactivity details using the seckillId
-        SeckillActivity seckillActivity = seckillActivityService.querySeckillActivityById(seckillId);
-        //Check if the activity exists or not?
-        if (seckillActivity == null) {
-            log.error("No seckill activity found with ID:" + seckillId);
-            return "404";
+        SeckillActivity seckillActivity;
+        Goods goods;
+        long startTotalStatic = System.nanoTime();
+        //Locate the static page
+        Resource resource = resourceLoader.getResource("classpath:/static/seckill_item_" + seckillId + ".html");
+        if (resource.exists()) {
+            //Redirect since static page exists
+            long endTotalStatic = System.nanoTime();
+            log.info("Find static Page! Total execution time: {} nanoseconds", (endTotalStatic - startTotalStatic));
+            return "redirect:/seckill_item_" + seckillId + ".html";
+        } else {
+            long startTotal = System.nanoTime();
+
+            //First try to get the flash sale activity info from Redis
+            String activityKey = "seckill:activity" + seckillId;
+            String activityJson = redisWorker.getValueByKey(activityKey);
+            long startCache = System.nanoTime();
+            if (activityJson != null) {
+                seckillActivity = JSON.parseObject(activityJson, SeckillActivity.class);
+                log.info("Hit the cache for the SeckillActivity:{}", activityJson);
+            } else {
+                long startDb = System.nanoTime();
+                seckillActivity = seckillActivityService.querySeckillActivityById(seckillId);
+                long endDb = System.nanoTime();
+                log.info("Database query time for SeckillActivity: {} nanoseconds",(endDb - startDb));
+                //Check if the activity exists or not?
+                if (seckillActivity == null) {
+                    log.error("No seckill activity found with ID:" + seckillId);
+                    throw new RuntimeException("Do not found the corresponding seckillInfo");
+                }
+                //Put the info into Redis
+                redisWorker.setValue(activityKey,JSON.toJSONString(seckillActivity));
+            }
+            long endCache = System.nanoTime();
+            log.info("Time Spent in cache for SeckillActivity: {} nanoseconds", (endCache - startCache));
+            log.info("SeckillID = {}, seckillActivity={}", seckillId, JSON.toJSON(seckillActivity));
+            String newPrice = CommonUtils.changeF2Y(seckillActivity.getSeckillPrice());
+            String oldPrice = CommonUtils.changeF2Y(seckillActivity.getOldPrice());
+            resultMap.put("seckillActivity", seckillActivity);
+            resultMap.put("seckillPrice", newPrice);
+            resultMap.put("oldPrice", oldPrice);
+
+            //First try to get the goods info from redis
+            String goodsKey = "seckillActivity_goods:" + seckillActivity.getGoodsId();
+            String goodsJson = redisWorker.getValueByKey(goodsKey);
+            startCache = System.nanoTime();
+            if (goodsJson != null) {
+                goods = JSON.parseObject(goodsJson, Goods.class);
+                log.info("Hit the cahce for goods:{}", goodsJson);
+            } else {
+                long startDb = System.nanoTime();
+                goods = goodsService.queryGoodsById(seckillActivity.getGoodsId());
+                long endDb = System.nanoTime();
+                log.info("Database query time for goods: {} nanoseconds", (endDb - startDb));
+                if (goods == null) {
+                    log.error("There is no corresponding flash sale goods for seckillId:{}, goodsId:{}", seckillId, seckillActivity.getGoodsId());
+                    throw new RuntimeException("Error searching falsh sale goods");
+                }
+                redisWorker.setValue(goodsKey, JSON.toJSONString(goods));
+            }
+            endCache = System.nanoTime();
+            log.info("Time Spent in cache for goods: {} nanoseconds", (endCache - startCache));
+            resultMap.put("seckillActivity",seckillActivity);
+            resultMap.put("seckillPrice", newPrice);
+            resultMap.put("oldPrice", oldPrice);
+            resultMap.put("goods",goods);
+            long endTotal = System.nanoTime();
+            log.info("Total execution time: {} nanoseconds", (endTotal - startTotal));
+            return "seckill_item";
         }
-        String newPrice = CommonUtils.changeF2Y(seckillActivity.getSeckillPrice());
-        String oldPrice = CommonUtils.changeF2Y(seckillActivity.getOldPrice());
-        resultMap.put("seckillActivity", seckillActivity);
-        resultMap.put("seckillPrice", newPrice);
-        resultMap.put("oldPrice", oldPrice);
-        Goods goods = goodsService.queryGoodsById(seckillActivity.getGoodsId());
-        if (goods == null) {
-            log.error("There is no corresponding flash sale goods for seckillId:{}, goodsId:{}", seckillId, seckillActivity.getGoodsId());
-            throw new RuntimeException("Error searching falsh sale goods");
-        }
-        resultMap.put("goods",goods);
-        return "seckill_item";
     }
 
     @RequestMapping("/seckill/list")
@@ -186,15 +247,29 @@ Flash Sale Activity Detail Page
         return "seckill_activity_list";
     }
 
-    @ResponseBody
+    //    @ResponseBody
+//    @RequestMapping("/seckill/buy/{userId}/{seckillId}")
+//    public String seckillInfoBase(@PathVariable long seckillId) {
+//        //boolean res = seckillActivityService.processSeckillReqBase(seckillId);
+//        boolean res = seckillActivityService.processSeckillSolution(seckillId);
+//        if (res) {
+//            return "商品成功抢购";
+//        } else {
+//            return "商品已售完 未能成功抢购";
+//        }
+//    }
     @RequestMapping("/seckill/buy/{userId}/{seckillId}")
-    public String seckillInfoBase(@PathVariable long seckillId) {
-        //boolean res = seckillActivityService.processSeckillReqBase(seckillId);
-        boolean res = seckillActivityService.processSeckillSolution(seckillId);
-        if (res) {
-            return "商品成功抢购";
-        } else {
-            return "商品已售完 未能成功抢购";
+    public ModelAndView seckill(@PathVariable long userId, @PathVariable long seckillId) {
+        ModelAndView modelAndView = new ModelAndView();
+        try {
+            Order order = seckillActivityService.processSeckillSolution(userId,seckillId);
+            modelAndView.addObject("resultInfo", "秒杀抢购成功");
+            modelAndView.addObject("order", order);
+            modelAndView.setViewName("buy_result");
+        } catch (Exception e) {
+            modelAndView.addObject("errorInfo", e.getMessage());
+            modelAndView.setViewName("error");
         }
+        return modelAndView;
     }
 }

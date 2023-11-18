@@ -126,4 +126,18 @@ public class ManagerController {
         return "add_skill_activity";
     }
 
+    @RequestMapping("/pushSeckillCache")
+    public String pushSeckillCache() {
+        return "push_seckill_cache";
+    }
+
+    /*
+     * Write the seckill info into cache
+     */
+    @RequestMapping("/pushSeckillCacheAction")
+    public String pushSkillCache(@RequestParam("seckillId") long seckillId) {
+        //Write the seckill Info into the cahce
+        seckillActivityService.pushSeckillActivityInfoToCache(seckillId);
+        return "push_seckill_cache";
+    }
 }

@@ -3,11 +3,13 @@ package com.shangan.tradelightningdeal.db.dao.Impl;
 import com.shangan.tradelightningdeal.db.dao.SeckillActivityDao;
 import com.shangan.tradelightningdeal.db.mappers.SeckillActivityMapper;
 import com.shangan.tradelightningdeal.db.model.SeckillActivity;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Slf4j
 @Service
 public class SeckillActivityDaoImpl implements SeckillActivityDao {
 
@@ -39,5 +41,32 @@ public class SeckillActivityDaoImpl implements SeckillActivityDao {
         return result > 0;
     }
 
+    @Override
+    public boolean lockStock(long id) {
+        int result = seckillActivityMapper.lockStock(id);
+        if (result < 0) {
+            log.error("锁定库存失败");
+            return false;
+        }
+        return true;
+    }
+    @Override
+    public boolean deductStock(long id) {
+        int result = seckillActivityMapper.deductStock(id);
+        if (result < 1) {
+            log.error("扣减库存失败");
+            return false;
+        }
+        return true;
+    }
+    @Override
+    public boolean revertStock(long id) {
+        int result = seckillActivityMapper.revertStock(id);
+        if (result < 1) {
+            log.error("库存回补失败");
+            return false;
+        }
+        return true;
+    }
 
 }
