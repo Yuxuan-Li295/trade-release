@@ -1,4 +1,4 @@
-package com.shangan.tradeorder.mq;
+package com.shangan.tradecommon.mq;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.AmqpTemplate;

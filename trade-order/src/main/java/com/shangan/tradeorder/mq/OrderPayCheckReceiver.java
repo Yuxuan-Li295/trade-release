@@ -6,7 +6,7 @@ package com.shangan.tradeorder.mq;
  */
 
 import com.alibaba.fastjson.JSON;
-import com.shangan.tradegoods.service.GoodsService;
+import com.shangan.tradeorder.client.GoodsFeignClient;
 import com.shangan.tradeorder.db.dao.OrderDao;
 import com.shangan.tradeorder.db.model.Order;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +24,7 @@ public class OrderPayCheckReceiver {
     private OrderDao orderDao;
 
     @Autowired
-    private GoodsService goodsService;
+    private GoodsFeignClient goodsFeignClient;
 
     @RabbitListener(queues = "order.pay.status.check.queue")
     public void handleOrderStatus(String rawMessage) {
@@ -50,7 +50,7 @@ public class OrderPayCheckReceiver {
                     log.info("Order with ID:{} timeout! Order closed.",orderId);
                     dbOrder.setStatus(99);
                     orderDao.updateOrder(dbOrder);
-                    goodsService.revertStock(dbOrder.getGoodsId());
+                    goodsFeignClient.revertStock(dbOrder.getGoodsId());
                     break;
 
                 case 2:

@@ -1,16 +1,18 @@
 package com.shangan.tradelightningdeal.service.Impl;
 
 import com.alibaba.fastjson.JSON;
-import com.shangan.tradegoods.db.model.Goods;
-import com.shangan.tradegoods.service.GoodsService;
+
+import com.shangan.tradecommon.service.LimitBuyService;
+import com.shangan.tradecommon.utils.RedisWorker;
+import com.shangan.tradecommon.utils.SnowflakeIdWorker;
+import com.shangan.tradelightningdeal.client.GoodsFeignClient;
+import com.shangan.tradelightningdeal.client.model.Goods;
+import com.shangan.tradelightningdeal.client.model.Order;
 import com.shangan.tradelightningdeal.db.dao.SeckillActivityDao;
 import com.shangan.tradelightningdeal.db.model.SeckillActivity;
+import com.shangan.tradecommon.mq.OrderMessageSender;
 import com.shangan.tradelightningdeal.service.SeckillActivityService;
-import com.shangan.tradelightningdeal.utils.RedisWorker;
-import com.shangan.tradeorder.service.LimitBuyService;
-import com.shangan.tradeorder.db.model.Order;
-import com.shangan.tradeorder.utils.SnowflakeIdWorker;
-import com.shangan.tradeorder.mq.OrderMessageSender;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -36,7 +38,7 @@ public class SeckillActivityServiceImpl implements SeckillActivityService {
     private OrderMessageSender orderMessageSender;
 
     @Autowired
-    private GoodsService goodsService;
+    private GoodsFeignClient goodsFeignClient;
 
     @Override
     public boolean insertSeckillActivity(SeckillActivity seckillActivity) {
@@ -149,9 +151,7 @@ public class SeckillActivityServiceImpl implements SeckillActivityService {
         String activityKey = "seckill:activity" + seckillActivity.getId();
         redisWorker.setValue(activityKey, JSON.toJSONString(seckillActivity));
         //Goods info for the seckill Activity
-        Goods goods = goodsService.queryGoodsById(seckillActivity.getGoodsId());
+        Goods goods = goodsFeignClient.queryGoodsById(seckillActivity.getGoodsId());
         redisWorker.setValue("seckillActivity_goods:" + seckillActivity.getGoodsId(), JSON.toJSONString(goods));
     }
-
-
 }
