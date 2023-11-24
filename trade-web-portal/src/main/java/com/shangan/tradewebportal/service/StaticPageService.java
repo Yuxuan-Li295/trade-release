@@ -1,9 +1,9 @@
 package com.shangan.tradewebportal.service;
 
-import com.shangan.tradegoods.db.model.Goods;
-import com.shangan.tradegoods.service.GoodsService;
-import com.shangan.tradelightningdeal.db.model.SeckillActivity;
-import com.shangan.tradelightningdeal.service.SeckillActivityService;
+import com.shangan.tradewebportal.client.GoodsFeignClient;
+import com.shangan.tradewebportal.client.SeckillActivityFeignClient;
+import com.shangan.tradewebportal.client.model.Goods;
+import com.shangan.tradewebportal.client.model.SeckillActivity;
 import com.shangan.tradewebportal.util.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,10 +21,10 @@ import java.util.Map;
 public class StaticPageService {
 
     @Autowired
-    private SeckillActivityService seckillActivityService;
+    private SeckillActivityFeignClient seckillActivityFeignClient;
 
     @Autowired
-    private GoodsService goodsService;
+    private GoodsFeignClient goodsFeignClient;
 
     @Autowired
     private TemplateEngine templateEngine;
@@ -33,8 +33,8 @@ public class StaticPageService {
         PrintWriter writer = null;
         try {
             //Query the necessary data for the seckill detail page
-            SeckillActivity seckillActivity = seckillActivityService.querySeckillActivityById(seckillActivityId);
-            Goods goodsInfo = goodsService.queryGoodsById(seckillActivity.getGoodsId());
+            SeckillActivity seckillActivity = seckillActivityFeignClient.querySeckillActivityById(seckillActivityId);
+            Goods goodsInfo = goodsFeignClient.queryGoodsById(seckillActivity.getGoodsId());
             String newPrice = CommonUtils.changeF2Y(seckillActivity.getSeckillPrice());
             String oldPrice = CommonUtils.changeF2Y(seckillActivity.getOldPrice());
 

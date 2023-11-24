@@ -1,6 +1,5 @@
 package com.shangan.tradeorder.db.dao.Impl;
 
-import com.shangan.tradegoods.db.model.Goods;
 import com.shangan.tradeorder.db.dao.OrderDao;
 import com.shangan.tradeorder.db.mappers.OrderMapper;
 import com.shangan.tradeorder.db.model.Order;

@@ -1,9 +1,9 @@
 package com.shangan.tradewebmanager.controller;
 
-import com.shangan.tradegoods.db.model.Goods;
-import com.shangan.tradegoods.service.GoodsService;
-import com.shangan.tradelightningdeal.db.model.SeckillActivity;
-import com.shangan.tradelightningdeal.service.SeckillActivityService;
+import com.shangan.tradewebmanager.client.GoodsFeignClient;
+import com.shangan.tradewebmanager.client.SeckillActivityFeignClient;
+import com.shangan.tradewebmanager.client.model.Goods;
+import com.shangan.tradewebmanager.client.model.SeckillActivity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -20,10 +20,10 @@ import java.util.Map;
 public class ManagerController {
 
     @Autowired
-    private GoodsService goodsService;
+    private GoodsFeignClient goodsFeignClient;
 
     @Autowired
-    private SeckillActivityService seckillActivityService;
+    private SeckillActivityFeignClient seckillActivityFeignClient;
 
 
     @RequestMapping("/index")
@@ -77,7 +77,7 @@ public class ManagerController {
         goods.setStatus(1); //Initially set as available
         goods.setSaleNum(0);
         goods.setCreateTime(new Date());
-        boolean isAdded = goodsService.insertGoods(goods);
+        boolean isAdded = goodsFeignClient.insertGoods(goods);
         log.info("add goods result={}", isAdded);
         resultMap.put("goodsInfo", goods);
         return "add_goods";
@@ -117,7 +117,7 @@ public class ManagerController {
         seckillActivity.setAvailableStock(availableStock);
         seckillActivity.setOldPrice(oldPrice);
         seckillActivity.setCreateTime(new Date());
-        boolean isAdded = seckillActivityService.insertSeckillActivity(seckillActivity);
+        boolean isAdded = seckillActivityFeignClient.insertSeckillActivity(seckillActivity);
         if (!isAdded) {
             log.error("There is an error when adding the seckill activity action");
             return "500";
@@ -137,7 +137,7 @@ public class ManagerController {
     @RequestMapping("/pushSeckillCacheAction")
     public String pushSkillCache(@RequestParam("seckillId") long seckillId) {
         //Write the seckill Info into the cahce
-        seckillActivityService.pushSeckillActivityInfoToCache(seckillId);
+        seckillActivityFeignClient.pushSeckillActivityInfoToCache(seckillId);
         return "push_seckill_cache";
     }
 }

@@ -8,4 +8,6 @@ public interface OrderService {
     Order queryOrder(long orderId);
 
     void payOrder(long orderId);
+
+    boolean updateOrder(Order order);
 }

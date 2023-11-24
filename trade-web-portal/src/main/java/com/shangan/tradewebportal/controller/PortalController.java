@@ -1,29 +1,26 @@
 package com.shangan.tradewebportal.controller;
 
 import com.alibaba.fastjson.JSON;
-import com.shangan.tradegoods.db.dao.GoodsDao;
-import com.shangan.tradegoods.db.model.Goods;
-import com.shangan.tradegoods.service.GoodsService;
-import com.shangan.tradegoods.service.SearchService;
-import com.shangan.tradelightningdeal.db.model.SeckillActivity;
-import com.shangan.tradelightningdeal.service.SeckillActivityService;
-import com.shangan.tradelightningdeal.utils.RedisWorker;
+import com.shangan.tradecommon.model.TradeResultDTO;
+import com.shangan.tradecommon.utils.RedisWorker;
+import com.shangan.tradewebportal.client.GoodsFeignClient;
+import com.shangan.tradewebportal.client.OrderFeignClient;
+import com.shangan.tradewebportal.client.SeckillActivityFeignClient;
+import com.shangan.tradewebportal.client.model.Goods;
+import com.shangan.tradewebportal.client.model.Order;
+import com.shangan.tradewebportal.client.model.SeckillActivity;
 import com.shangan.tradewebportal.util.CommonUtils;
-import com.shangan.tradeorder.service.OrderService;
 import lombok.extern.slf4j.Slf4j;
-import com.shangan.tradeorder.db.model.Order;
+import org.aspectj.weaver.ast.Or;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.Resource;
-import org.springframework.boot.autoconfigure.cache.CacheProperties;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -33,19 +30,13 @@ import java.util.Map;
 public class PortalController {
 
     @Autowired
-    private GoodsDao goodsDao;
+    private GoodsFeignClient goodsFeignClient;
 
     @Autowired
-    private GoodsService goodsService;
+    private OrderFeignClient orderFeignClient;
 
     @Autowired
-    private SearchService searchService;
-
-    @Autowired
-    private OrderService orderService;
-
-    @Autowired
-    private SeckillActivityService seckillActivityService;
+    private SeckillActivityFeignClient seckillActivityFeignClient;
 
     @Autowired
     private RedisWorker redisWorker;
@@ -67,7 +58,7 @@ public class PortalController {
     public ModelAndView displayProductDetail(@PathVariable long goodsId) {
         ModelAndView mav = new ModelAndView();
         log.info("Received goodsId: {}", goodsId);
-        Goods item = goodsService.queryGoodsById(goodsId);
+        Goods item = goodsFeignClient.queryGoodsById(goodsId);
         log.info("Fetching details for Product ID = {}, Details = {}", goodsId, JSON.toJSONString(item));
 
         if (item != null) {
@@ -91,13 +82,13 @@ public class PortalController {
         try {
             log.info("buy userId={}, goodsId={}", userId, goodsId);
             //Fetch the goods from the database.
-            Goods goods = goodsDao.queryGoodsById(goodsId);
+            Goods goods = goodsFeignClient.queryGoodsById(goodsId);
             if (goods == null) {
                modelAndView.addObject("errorInfo","商品不存在，下单失败");
                modelAndView.setViewName("error");
                return modelAndView;
             }
-            Order order = orderService.createOrder(userId,goodsId);
+            Order order = orderFeignClient.createOrder(userId,goodsId);
             //Create a new order using OrderService
             if (order != null) {
                 modelAndView.addObject("order",order);
@@ -123,14 +114,14 @@ public class PortalController {
     @RequestMapping("/searchAction")
     public String executeSearch(@RequestParam("searchWords") String searchWords, Map<String, Object> resultMap) {
         log.info("Execute search for word: {}", searchWords);
-        List<Goods> resultList = searchService.searchGoodsList(searchWords,0,10);
+        List<Goods> resultList = goodsFeignClient.searchGoodsList(searchWords,0,10);
         resultMap.put("goodsList", resultList);
         return "search";
     }
 
     @RequestMapping("/order/query/{orderId}")
     public String orderQuery(Map<String, Object> resultMap, @PathVariable long orderId) {
-        Order order = orderService.queryOrder(orderId);
+        Order order = orderFeignClient.queryOrder(orderId);
         if (order != null) {
             log.info("Order ID: {} | Order Details: {}", orderId, JSON.toJSON(order));
         }
@@ -143,7 +134,7 @@ public class PortalController {
     @RequestMapping("/order/payOrder/{orderId}")
     public String payOrder(Map<String, Object> resultMap, @PathVariable long orderId) {
         try {
-            orderService.payOrder(orderId);
+            orderFeignClient.payOrder(orderId);
             return "redirect:/order/query/" + orderId;
         } catch (IllegalArgumentException e) {
             resultMap.put("errorInfo", e.getMessage());
@@ -182,7 +173,7 @@ Flash Sale Activity Detail Page
                 log.info("Hit the cache for the SeckillActivity:{}", activityJson);
             } else {
                 long startDb = System.nanoTime();
-                seckillActivity = seckillActivityService.querySeckillActivityById(seckillId);
+                seckillActivity = seckillActivityFeignClient.querySeckillActivityById(seckillId);
                 long endDb = System.nanoTime();
                 log.info("Database query time for SeckillActivity: {} nanoseconds",(endDb - startDb));
                 //Check if the activity exists or not?
@@ -211,7 +202,7 @@ Flash Sale Activity Detail Page
                 log.info("Hit the cahce for goods:{}", goodsJson);
             } else {
                 long startDb = System.nanoTime();
-                goods = goodsService.queryGoodsById(seckillActivity.getGoodsId());
+                goods = goodsFeignClient.queryGoodsById(seckillActivity.getGoodsId());
                 long endDb = System.nanoTime();
                 log.info("Database query time for goods: {} nanoseconds", (endDb - startDb));
                 if (goods == null) {
@@ -235,7 +226,7 @@ Flash Sale Activity Detail Page
     @RequestMapping("/seckill/list")
     public String flashSaleList(Map<String, Object> resultMap) {
         //Fetch all ongoing seckillActivities
-        List<SeckillActivity> seckillActivities = seckillActivityService.queryActivityByStatus(1);
+        List<SeckillActivity> seckillActivities = seckillActivityFeignClient.queryActivityByStatus(1);
 
         //Check if the list is empty
         if (seckillActivities.isEmpty()) {
@@ -262,11 +253,16 @@ Flash Sale Activity Detail Page
     public ModelAndView seckill(@PathVariable long userId, @PathVariable long seckillId) {
         ModelAndView modelAndView = new ModelAndView();
         try {
-            Order order = seckillActivityService.processSeckillSolution(userId,seckillId);
+            TradeResultDTO<Order> orderTradeResultDTO = seckillActivityFeignClient.processSeckillSolution(userId,seckillId);
+            log.info("seckillActivityFeignClinet get goods in secKill's result:{}", orderTradeResultDTO);
+            if (orderTradeResultDTO.getCode() != 200) {
+                throw new RuntimeException(orderTradeResultDTO.getErrorMessage());
+            }
             modelAndView.addObject("resultInfo", "秒杀抢购成功");
-            modelAndView.addObject("order", order);
+            modelAndView.addObject("order", orderTradeResultDTO.getData());
             modelAndView.setViewName("buy_result");
         } catch (Exception e) {
+            log.error("There is an error in seckill buy", e);
             modelAndView.addObject("errorInfo", e.getMessage());
             modelAndView.setViewName("error");
         }

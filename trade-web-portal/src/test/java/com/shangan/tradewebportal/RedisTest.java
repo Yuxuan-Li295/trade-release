@@ -1,6 +1,7 @@
 package com.shangan.tradewebportal;
 
-import com.shangan.tradelightningdeal.utils.RedisWorker;
+
+import com.shangan.tradecommon.utils.RedisWorker;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;

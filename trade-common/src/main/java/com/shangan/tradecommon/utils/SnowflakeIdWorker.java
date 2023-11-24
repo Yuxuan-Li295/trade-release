@@ -1,4 +1,4 @@
-package com.shangan.tradeorder.utils;
+package com.shangan.tradecommon.utils;
 
 /**
  * Twitter_Snowflake

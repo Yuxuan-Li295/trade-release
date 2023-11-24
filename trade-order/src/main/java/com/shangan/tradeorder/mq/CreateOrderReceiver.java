@@ -1,8 +1,9 @@
 package com.shangan.tradeorder.mq;
 
 import com.alibaba.fastjson.JSON;
+import com.shangan.tradecommon.mq.OrderMessageSender;
+import com.shangan.tradecommon.service.LimitBuyService;
 import com.shangan.tradeorder.db.dao.OrderDao;
-import com.shangan.tradeorder.service.LimitBuyService;
 import lombok.extern.slf4j.Slf4j;
 import com.shangan.tradeorder.db.model.Order;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
