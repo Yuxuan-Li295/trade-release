@@ -1,75 +1,151 @@
 # trade-release
 
-## Assignment for Class 12
+## Assignment for Class 13
 
-### Diistrbuted Structure Reconstruct
+### Data sharding
 
-**Completion Date:** Nov 24
+**Completion Date:** Nov 27
 
-1. **Modification of current works**:
+1. **Database Creation**:
 
-For the modification, basic we follow the following steps:
+In order to complete the data sharding modification, I created two additional database namely `trade_sys_db_1` and `trade_sys_db_2` and in each database, I created two additional table namely `order_info_1` and `order_info_2`. I tried to put the order logic for a single user all in one database but conduct horizontal sharding for all the order information according to the order Id. At the mean time, according to different userId, I tried to distribute different user into different database in order to increase the availability and the performance of the system.
 
-1. Create a trade-common module and put the public configuration and tools into this module.
-2. For other modules, update the corresponding `maven` dependency, add the necessary spring cloud configuration file, the dependency for the `trade-common` module and delete the dependency for other module to ensure the high cohesion, low coupling coding structure. 
-3. Add the configuration for the consul in our `application.properties`
-4. Modify the `starter` class and add the necessary annotation for our service being discovered and managed in consul.
-5. Add the necessary controller for the corresponding project module and hence as the guideline to create the `FeignClient` later in other module.
-6. Conduct the start-test for the corresponding module and after we have transfer and modifed all the modules we should see all five modules are being registered, managed and can be discovered in consul:
-
-![ServiceTransfer12](Images/ServiceTransfer12.png)
 
  
 
-2. **Test**:
-For this part, we just conducted serveral necessary test to ensure the functionality retains after we conducted the modification on our projects:
+2. **Maven Dependency**:
+Important the necessary dependency for sharding-jdbc including `sharding-jdbc-spring-boot-starter`(part of Apache ShardingSphere and provides the core functionality for database sharding and data partitioning in a Spring Boot application) and `druid-spring-boot-starter`(integrates Alibaba's Druid database connection pool with Spring Boot, it is a high-performance dtabase connection pool that offers advanced features for database connection management).
 
-**Trade Goods, Order module and Web Manager Module**:
-(1):First test the function of adding new goods to the database:
+3. **Configuration**:
+For this part we mainly add some configuration code in `application.properties` we first defined the `actual-data-nodes` with our database configuration and then define the sharding-column for the sharding table and also the `user_id` as the key for database sharding.
 
-![AddingNewGoods12](Images/AddingNewGoods12.png)
-![AddingVerification12](Images/AddingVerify12.png)
+The corresponding code are listed as follows:
+```java
+#m1.order_info_1 m1.order_info_2 m2.order_info_1 m2.order_info_2
+#improve the scalability and performance of the application
+spring.shardingsphere.rules.sharding.tables.order_info.actual-data-nodes=m$->{1..2}.order_info_$->{1..2}
 
-It is found after we add information in our webmanager page, the database indeed have new goods records.
+spring.shardingsphere.sharding.tables.order_info.key-generator.column=id
+spring.shardingsphere.sharding.tables.order_info.key-generator.type=SNOWFLAKE
 
-(2): We test we can see the goods detail for certain goods:
-![ShowGoodsDetail12](Images/ShowGoodsDetail12.png)
-![buynowTest12](Images/BuyNowTest12.png)
-When we click the button `Buy Now` we will send the proper reqeust to the backend and jump to the `buy/userId/goodsId` path successfully.
+#sharding-column
+#horizontally scaling databases
+#If id is 1 -> 1 % 2 + 1 = 2 -> order_info_2
+#if id is 2 -> '2 % 2 + 1 = 1 -> order_info_1
+spring.shardingsphere.sharding.tables.order_info.table-strategy.inline.sharding-column=id
+spring.shardingsphere.sharding.tables.order_info.table-strategy.inline.algorithm-expression=order_info_$->{id % 2 +1}
 
-(3): GoodsSearch Test:
-![SearchPage12](Images/SearchPage12.png)
-![SearchCertainGoods12](Images/SearchCertainGoods12.png)
+#user_id
+#both table-level and database-level sharding for the 'order-info' table using Apache
+#shardingsphere in a spring boot application
+spring.shardingsphere.sharding.tables.order_info.database-strategy.inline.sharding-column=user_id
+spring.shardingsphere.sharding.tables.order_info.database-strategy.inline.algorithm-expression=m$->{user_id % 2 +1}
 
-**Trade-Order, Trade-Seckill and Trade-WebPortal Test** 
+```
 
-1. We can sucessfully create an order:
+3. **Testing**:
 
-![OrderCreation12](Images/OrderCreation12.png)
+## Testing for sharding
 
-If the user didn't pay the order after certain time, the order will close automatically:
+Based on our sharding rules, we have identified four main test cases to validate the functionality and effectiveness of our implementation. Below are the details for each test case:
 
-![OrderClose12](Images/OrderClose12.png)
+### Test Case 1: [Odd UserId + Odd Order Id]
+- **Description:** I tried to insert a new order with `userId: 1, Id: 19`.
+- **Expected Results:**  According to our sharding logic, userId % 2 + 1 = 19 % 2 + 1 = 2 -> to `trade_sys_db2`.
+GoodsId % 2 + 1 = 19 % 2 + 1 = 2 -> go to `order_info_2`
+- **Actual Result:** 
+![ShardingTest1](Images/ShardingResult1132.png)
 
-2. Order payment:
-
-Instead, we can also pay our order directly and verify the status of this order has been changed and corresponding hint message being printed out:
-![OrderPayment12](Images/OrderPayment12.png) 
-
-3. Seckill Activity:
-We can see the list of seckill activities:
-![seckillList12](Images/SeckillList12.png)
-
-We can also see the detailed page of the seckill activity:
-![SeckillActivityDetailPage](Images/SeckillDetailPage12.png)
-
-Then we can buy certain goods and verifed the status also in the console
-![SeckillBuySucess12](Images/SeckillBuySuccess12.png)
-
-![SeckillBuySucessConsole12](Images/SeckillBuySuccessConsole12.png)
-
-If we didn't pay the ordr within the given time, the order will be closed with the proper message being sent properly in the console and the webpage:
-![OrderTimeOut12](Images/OrderTimeout12.png)
-![OrderTimeOutConsole12](Images/OrderTimeout12Console.png)
+### Test Case 2: [Even UserId + Even Order Id]
+- **Description:** I tried to insert a new order with `userId: 2, Id: 20`.
+- **Expected Results:** According to our sharding logic, userId % 2 + 1 = 2 % 2 + 1 = 1 -> to `trade_sys_db1`.
+GoodsId % 2 + 1 = 20 % 2 + 1 = 1 -> go to `order_info_1`.
+- **Actual Result:**
+![ShardingTest2](Images/ShardingTest213new.png)
 
 
+### Test Case 3: [Odd UserId + Even Order Id]
+- **Description:** I tried to insert a new order with `userId: 1,Order Id: 22`.
+- **Expected Result:** According to our sharding logic, userId % 1 + 1 = 1 % 2 + 1 = 2 -> to `trade_sys_db2`.
+GoodsId % 2 + 1 = 22 % 2 + 1 = 1 -> go to `order_info_1`.
+- **Actual Results:** ![ShardingTest3](Images/ShardingResult313.png)
+
+### Test Case 4: [Even UserId + Odd Order Id]
+- **Description:** I tried to insert a new order with `UserId: 2, Order Id: 23`
+- **Expected Result:** According to our sharding logic, userId % 1 + 1 = 2 % 2 + 1 = 1 -> to `trade_sys_db1`.
+GoodsId % 2 + 1 = 23 % 2 + 1 = 2 -> go to `order_info_2`.
+- **Actual Results:** ![ShardingTest4](Images/ShardingResult413.png)
+
+### Test Case 5: Generates lots of different userId and GoodsId simulation:
+
+In this part, I used `Snowflake` to generate different Id and different userId to test the system's capability under a slightly heavy id generation cases. 
+
+```java
+        for (int i = 0; i < 100; i++) {
+            System.out.println("Generate Snowflake Distributed Id Test:");
+            Order order = new Order();
+            order.setId(snowFlake.nextId() + 1);
+            //order.setId(snowFlake.nextId());
+            order.setUserId(23L + i);
+            order.setGoodsId(1044L);
+            order.setPayTime(new Date());
+            order.setPayPrice(1999);
+            order.setStatus(1);
+            order.setActivityType(1);
+            order.setCreateTime(new Date());
+            boolean insertResult = orderDao.insertOrder(order);
+            System.out.println(insertResult);
+        }
+
+```
+`Question about the snowFlake.nextId()`
+
+And it is found the generated ordr can be sharding correctly into different tables and databases according to our's sharding rule:
+
+![ShardingTest513](Images/ShardingTest513.png)
+
+![ShardingTest613](Images/ShardingTest613.png)
+
+![ShardingTest713](Images/ShardingTest713.png)
+
+![ShardingTest813](Images/ShardingTest813.png)
+
+`Question2: What is datasourceHealthConfig`
+
+```java
+package com.shangan.trade.order.config;
+
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.actuate.autoconfigure.jdbc.DataSourceHealthContributorAutoConfiguration;
+import org.springframework.boot.actuate.health.AbstractHealthIndicator;
+import org.springframework.boot.actuate.jdbc.DataSourceHealthIndicator;
+import org.springframework.boot.jdbc.metadata.DataSourcePoolMetadataProvider;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
+
+import javax.sql.DataSource;
+import java.util.Map;
+
+@Configuration
+public class DataSourceHealthConfig extends DataSourceHealthContributorAutoConfiguration {
+ 
+    @Value("${spring.datasource.dbcp2.validation-query:select 1}")
+    private String defaultQuery;
+ 
+ 
+    public DataSourceHealthConfig(Map<String, DataSource> dataSources, ObjectProvider<DataSourcePoolMetadataProvider> metadataProviders) {
+        super(dataSources, metadataProviders);
+    }
+ 
+    @Override
+    protected AbstractHealthIndicator createIndicator(DataSource source) {
+        DataSourceHealthIndicator indicator = (DataSourceHealthIndicator) super.createIndicator(source);
+        if (!StringUtils.hasText(indicator.getQuery())) {
+            indicator.setQuery(defaultQuery);
+        }
+        return indicator;
+    }
+}
+
+```

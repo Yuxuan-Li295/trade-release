@@ -1,6 +1,7 @@
 package com.shangan.tradeorder;
 
-import com.shangan.tradeorder.service.LimitBuyService;
+
+import com.shangan.tradecommon.service.LimitBuyService;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
