@@ -76,5 +76,12 @@ public class OrderTest {
         orderService.createOrder(1L, 1045L);
     }
 
+    @Test
+    public void updateTest() {
+        Order order = orderService.queryOrder(19L);
+        order.setStatus(99);
+        orderService.updateOrder(order);
+    }
+
 
 }

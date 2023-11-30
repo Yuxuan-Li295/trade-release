@@ -110,6 +110,21 @@ And it is found the generated ordr can be sharding correctly into different tabl
 
 ![ShardingTest813](Images/ShardingTest813.png)
 
+### Test Case 6: After sharding, test search and update some order:
+I conducted the following test to update the order status of order 19:
+```java
+    @Test
+    public void updateTest() {
+        Order order = orderService.queryOrder(19L);
+        order.setStatus(99);
+        orderService.updateOrder(order);
+    }
+
+```
+Result shows the order can be sucessfully fetched and the corresponding order status can be updated:
+![UpdateOrder13](Images/UpdateOrder13.png)
+
+
 `Question2: What is datasourceHealthConfig`
 
 ```java
