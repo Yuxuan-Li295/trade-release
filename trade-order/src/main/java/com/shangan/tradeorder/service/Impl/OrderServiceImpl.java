@@ -56,7 +56,7 @@ public class OrderServiceImpl implements OrderService {
         }
         Order order = new Order();
         //使用SnowflakeIdWorker生成唯一的ID
-        long orderId = snowflakeIdWorker.nextId();
+        long orderId = snowflakeIdWorker.nextId() + 1;
         order.setId(orderId);
         order.setUserId(userId);
         order.setGoodsId(goodsId);
