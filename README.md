@@ -2,165 +2,73 @@
 
 ## Assignment for Class 13
 
-### Data sharding
+### Rate Limiting and AWS Cloud Configuration(Optional)
 
-**Completion Date:** Nov 27
+**Completion Date:** Nov 30
 
-1. **Database Creation**:
+1. **Implemntation Hystrix in the Project**:
 
-In order to complete the data sharding modification, I created two additional database namely `trade_sys_db_1` and `trade_sys_db_2` and in each database, I created two additional table namely `order_info_1` and `order_info_2`. I tried to put the order logic for a single user all in one database but conduct horizontal sharding for all the order information according to the order Id. At the mean time, according to different userId, I tried to distribute different user into different database in order to increase the availability and the performance of the system.
-
-
- 
-
-2. **Maven Dependency**:
-Important the necessary dependency for sharding-jdbc including `sharding-jdbc-spring-boot-starter`(part of Apache ShardingSphere and provides the core functionality for database sharding and data partitioning in a Spring Boot application) and `druid-spring-boot-starter`(integrates Alibaba's Druid database connection pool with Spring Boot, it is a high-performance dtabase connection pool that offers advanced features for database connection management).
-
-3. **Configuration**:
-For this part we mainly add some configuration code in `application.properties` we first defined the `actual-data-nodes` with our database configuration and then define the sharding-column for the sharding table and also the `user_id` as the key for database sharding.
-
-The corresponding code are listed as follows:
-```java
-#m1.order_info_1 m1.order_info_2 m2.order_info_1 m2.order_info_2
-#improve the scalability and performance of the application
-spring.shardingsphere.rules.sharding.tables.order_info.actual-data-nodes=m$->{1..2}.order_info_$->{1..2}
-
-spring.shardingsphere.sharding.tables.order_info.key-generator.column=id
-spring.shardingsphere.sharding.tables.order_info.key-generator.type=SNOWFLAKE
-
-#sharding-column
-#horizontally scaling databases
-#If id is 1 -> 1 % 2 + 1 = 2 -> order_info_2
-#if id is 2 -> '2 % 2 + 1 = 1 -> order_info_1
-spring.shardingsphere.sharding.tables.order_info.table-strategy.inline.sharding-column=id
-spring.shardingsphere.sharding.tables.order_info.table-strategy.inline.algorithm-expression=order_info_$->{id % 2 +1}
-
-#user_id
-#both table-level and database-level sharding for the 'order-info' table using Apache
-#shardingsphere in a spring boot application
-spring.shardingsphere.sharding.tables.order_info.database-strategy.inline.sharding-column=user_id
-spring.shardingsphere.sharding.tables.order_info.database-strategy.inline.algorithm-expression=m$->{user_id % 2 +1}
-
-```
-
-3. **Testing**:
-
-## Testing for sharding
-
-Based on our sharding rules, we have identified four main test cases to validate the functionality and effectiveness of our implementation. Below are the details for each test case:
-
-### Test Case 1: [Odd UserId + Odd Order Id]
-- **Description:** I tried to insert a new order with `userId: 1, Id: 19`.
-- **Expected Results:**  According to our sharding logic, userId % 2 + 1 = 19 % 2 + 1 = 2 -> to `trade_sys_db2`.
-GoodsId % 2 + 1 = 19 % 2 + 1 = 2 -> go to `order_info_2`
-- **Actual Result:** 
-![ShardingTest1](Images/ShardingResult1132.png)
-
-### Test Case 2: [Even UserId + Even Order Id]
-- **Description:** I tried to insert a new order with `userId: 2, Id: 20`.
-- **Expected Results:** According to our sharding logic, userId % 2 + 1 = 2 % 2 + 1 = 1 -> to `trade_sys_db1`.
-GoodsId % 2 + 1 = 20 % 2 + 1 = 1 -> go to `order_info_1`.
-- **Actual Result:**
-![ShardingTest2](Images/ShardingTest213new.png)
+I added necessary pom dependency into `trade-web-portal` module and add the annotation `@EnableCircuitBreaker` it is used to start the breaker and prevent that one service failed caused the entire service down. Then I configure the necessary configuration for the rate limiting and using the `SEMAPHORE` isolation strategy and set the maximum concurrency allowed to be 1. 
 
 
-### Test Case 3: [Odd UserId + Even Order Id]
-- **Description:** I tried to insert a new order with `userId: 1,Order Id: 22`.
-- **Expected Result:** According to our sharding logic, userId % 1 + 1 = 1 % 2 + 1 = 2 -> to `trade_sys_db2`.
-GoodsId % 2 + 1 = 22 % 2 + 1 = 1 -> go to `order_info_1`.
-- **Actual Results:** ![ShardingTest3](Images/ShardingResult313.png)
+2. **Test for Rate Limiting**:
 
-### Test Case 4: [Even UserId + Odd Order Id]
-- **Description:** I tried to insert a new order with `UserId: 2, Order Id: 23`
-- **Expected Result:** According to our sharding logic, userId % 1 + 1 = 2 % 2 + 1 = 1 -> to `trade_sys_db1`.
-GoodsId % 2 + 1 = 23 % 2 + 1 = 2 -> go to `order_info_2`.
-- **Actual Results:** ![ShardingTest4](Images/ShardingResult413.png)
+For this testing, I still use  `JMeter` to simulate the large concurrency request.  The configuration are:
+![JmeterConfigue141](Images/JMeterConfigue14.png)
+![JmeterConfigue142](Images/JmeterConfigue214.png)
 
-### Test Case 5: Generates lots of different userId and GoodsId simulation:
+Then we test the corresponidng path from our application and can verify that the system indeed triggered the rate limiting: 
+![RateLimitingTriggered14](Images/RateLimitTriggered14.png)
+After the ramp-up period is expired, I also verifed that the system can continue to handle normal seckill buy request normally:
+![NoRateLimitTriggered14](Images/NoRateLimitTriggered14.png)
 
-In this part, I used `Snowflake` to generate different Id and different userId to test the system's capability under a slightly heavy id generation cases. 
+3. **AWS Cloud Configuration**:
 
-```java
-        for (int i = 0; i < 100; i++) {
-            System.out.println("Generate Snowflake Distributed Id Test:");
-            Order order = new Order();
-            order.setId(snowFlake.nextId() + 1);
-            //order.setId(snowFlake.nextId());
-            order.setUserId(23L + i);
-            order.setGoodsId(1044L);
-            order.setPayTime(new Date());
-            order.setPayPrice(1999);
-            order.setStatus(1);
-            order.setActivityType(1);
-            order.setCreateTime(new Date());
-            boolean insertResult = orderDao.insertOrder(order);
-            System.out.println(insertResult);
-        }
+For this part, I first create my EC2 instance in AWS, for the consideration of configure whole application into the cloud, I choose `t2.medium` as the instance type. 
 
-```
-`Question about the snowFlake.nextId()`
+![CreateInstance6](Images/CreateInstance16.png)
 
-And it is found the generated ordr can be sharding correctly into different tables and databases according to our's sharding rule:
+After got my fixed elastic IP address, I use `EC2 instance connect` to connect to my instance and connected to the server successfully and have updated my password:
 
-![ShardingTest513](Images/ShardingTest513.png)
+![ConnectToServer16](Images/ConnectToServer116.png)
 
-![ShardingTest613](Images/ShardingTest613.png)
+Set the passowrd for the 'super root' and switch to the normal user and modify the `sshd` configure filw and enable the 'root' login, and login remotely with ssh root:
 
-![ShardingTest713](Images/ShardingTest713.png)
+![SSHRemoteLogin16](Images/SSHRemoteLogin16.png)
 
-![ShardingTest813](Images/ShardingTest813.png)
+Add the new security rule:
+![EditInBoundRule16](Images/EditInBoundRule16.png)
 
-### Test Case 6: After sharding, test search and update some order:
-I conducted the following test to update the order status of order 19:
-```java
-    @Test
-    public void updateTest() {
-        Order order = orderService.queryOrder(19L);
-        order.setStatus(99);
-        orderService.updateOrder(order);
-    }
+Upload JDK to the remote server:
 
-```
-Result shows the order can be sucessfully fetched and the corresponding order status can be updated:
-![UpdateOrder13](Images/UpdateOrder13.png)
+![UploadJDKLinux16](Images/UploadJDKLinux16.png)
 
 
-`Question2: What is datasourceHealthConfig`
+Install SQL and open remote connection and change the necessary configuration file and restart MySQL, I can verifed my MySQL connect to my remote host successfully:
 
-```java
-package com.shangan.trade.order.config;
+![MySQLConnection15](Images/MySQLConnection15.png)
 
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.actuate.autoconfigure.jdbc.DataSourceHealthContributorAutoConfiguration;
-import org.springframework.boot.actuate.health.AbstractHealthIndicator;
-import org.springframework.boot.actuate.jdbc.DataSourceHealthIndicator;
-import org.springframework.boot.jdbc.metadata.DataSourcePoolMetadataProvider;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.util.StringUtils;
+Then I transfer the data from local database into AWS's MySQL
 
-import javax.sql.DataSource;
-import java.util.Map;
+![TransferData15](Images/TransferData15.png)
 
-@Configuration
-public class DataSourceHealthConfig extends DataSourceHealthContributorAutoConfiguration {
- 
-    @Value("${spring.datasource.dbcp2.validation-query:select 1}")
-    private String defaultQuery;
- 
- 
-    public DataSourceHealthConfig(Map<String, DataSource> dataSources, ObjectProvider<DataSourcePoolMetadataProvider> metadataProviders) {
-        super(dataSources, metadataProviders);
-    }
- 
-    @Override
-    protected AbstractHealthIndicator createIndicator(DataSource source) {
-        DataSourceHealthIndicator indicator = (DataSourceHealthIndicator) super.createIndicator(source);
-        if (!StringUtils.hasText(indicator.getQuery())) {
-            indicator.setQuery(defaultQuery);
-        }
-        return indicator;
-    }
-}
+## Install RabbitMQ ##
 
-```
+Install `erlang`, add the public key and RabbitMQ. Then install the necessary Web plug-in. 
+
+![RabbitMQStep1](Images/RabbitMQStep1.png)
+
+Add user and assigned the administrator role and insure the security group for the server is opening the 15672 port.
+![RabbitMQStep2](Images/RabbitMQStep2.png)
+
+## Install Redis##
+![RedisInstall](Images/RedisInstallation15.png)
+
+
+## Install ElasticSearch ##
+
+First downloaded and decompressed the elasticsearch version `7.4.0`. Then add necessary configuration files and set the maximum concurrent number for all users to be `4096`. As ES cannot run as `root`, we need to create an 'non-root' user and here I create an user with name `es` and the specific user could got the foler's permission. And we just switch as es and enter the installation folder for the es and start the `es`'s servies:
+
+![ElasticSearchInstall](Images/ElasticSearch15.png)
+
+

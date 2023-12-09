@@ -1,6 +1,8 @@
 package com.shangan.tradewebportal.controller;
 
 import com.alibaba.fastjson.JSON;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
 import com.shangan.tradecommon.model.TradeResultDTO;
 import com.shangan.tradecommon.utils.RedisWorker;
 import com.shangan.tradewebportal.client.GoodsFeignClient;
@@ -249,6 +251,10 @@ Flash Sale Activity Detail Page
 //            return "商品已售完 未能成功抢购";
 //        }
 //    }
+    @HystrixCommand(fallbackMethod = "fallback", commandProperties = {
+            @HystrixProperty(name = "execution.isolation.strategy",value = "SEMAPHORE"),
+            @HystrixProperty(name = "execution.isolation.semaphore.maxConcurrentRequests",value = "1")
+    })
     @RequestMapping("/seckill/buy/{userId}/{seckillId}")
     public ModelAndView seckill(@PathVariable long userId, @PathVariable long seckillId) {
         ModelAndView modelAndView = new ModelAndView();
@@ -266,6 +272,15 @@ Flash Sale Activity Detail Page
             modelAndView.addObject("errorInfo", e.getMessage());
             modelAndView.setViewName("error");
         }
+        return modelAndView;
+    }
+
+    //Fallback executed when rate limiting
+    public ModelAndView fallback(long userId, long seckillId) {
+        log.info("Rate Limiting fallback being triggered");
+        ModelAndView modelAndView = new ModelAndView();
+        modelAndView.addObject("errorInfo","Rate Limiting Triggered, please try again later");
+        modelAndView.setViewName("error");
         return modelAndView;
     }
 }
